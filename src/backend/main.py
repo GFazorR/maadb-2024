@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import redis
 from fastapi import FastAPI, Depends, HTTPException, Request
@@ -8,7 +9,8 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from pymongo import MongoClient
-from models import Login, User
+from models import Login, User, Event, Ticket, ClientUser
+from bson.objectid import ObjectId
 
 # Initialize FastAPI application and templating engine
 app = FastAPI()
@@ -66,6 +68,136 @@ async def login(user: Login = Depends(oauth2_scheme)):
     response.headers["Location"] = "/user_profile"
     response.status_code = status.HTTP_302_FOUND  # Set redirect status code
     return response
+
+
+# ----------------------- Event Creation --------------------------------
+
+# User session (redis)
+@app.post('/event')
+async def create_event(event: Event):
+    pass
+
+
+@app.put('/event')
+async def update_event(event: Event):
+    pass
+
+
+@app.delete('/event')
+async def delete_event(event: Event):
+    pass
+
+
+@app.get('/event')
+async def read_event(key: ObjectId):
+    pass
+
+
+# Persistence (MongoDB)
+@app.post('/event/publish')
+async def publish_event(event: Event):
+    pass
+
+
+@app.put('/event/publish')
+async def update_published_event(event: Event):
+    pass
+
+
+@app.get('/event/publish')
+async def published_events():
+    pass
+
+
+@app.post('/event/save')
+async def save_event(event: Event):
+    pass
+
+
+@app.put('/event/save')
+async def save_event(event: Event):
+    pass
+
+
+@app.delete('/event/save')
+async def delete_event(event_id: ObjectId):
+    pass
+
+
+@app.get('/event/save')
+async def get_saved_events():
+    pass
+
+
+# ----------------------- Ticket Sale --------------------------------
+# User Session (Redis)
+@app.post('/ticket')
+async def buy_ticket(ticket: Ticket):
+    pass
+
+
+@app.get('/ticket')
+async def buy_ticket(ticket: Ticket):
+    pass
+
+
+@app.put('/ticket')
+async def update_ticket(ticket: Ticket):
+    pass
+
+
+@app.delete('/ticket')
+async def delete_ticket(ticket: Ticket):
+    pass
+
+
+# Persistence (Cassandra)
+@app.post('/ticket/buy')
+async def buy_ticket(ticket: Ticket):
+    pass
+
+
+@app.put('/ticket/buy')
+async def update_ticket(ticket: Ticket):
+    pass
+
+
+@app.delete('/ticket/buy')
+async def delete_ticket(ticket: Ticket):
+    pass
+
+
+@app.get('/ticket/buy')
+async def read_ticket(ticket_id: ObjectId):
+    pass
+
+
+# ----------------------- Telemetry --------------------------------
+# User Session (Redis(
+@app.post('/profile/attended_events')
+async def attended_events(events: List[Event]):
+    pass
+
+
+@app.post('/profile/discount')
+async def discount_earned(client: ClientUser):
+    pass
+
+
+# Persistence (Cassandra)
+@app.get('/event/telemetry')
+async def read_telemetry():
+    pass
+
+
+@app.get('/profile/attended_events')
+async def read_attended_events():
+    pass
+
+
+@app.get('/profile/discount')
+async def read_discount():
+    pass
 
 
 # Endpoint to render the registration page as the default view

@@ -37,7 +37,6 @@ class User(BaseModel):
 class ClientUser(User):
     attended_events: List[ObjectId]
     owned_tickets: List[ObjectId]
-    discount: float
 
 
 class BusinessUser(User):
