@@ -1,155 +1,140 @@
-import os
-from typing import List
+import logging
 
-import redis
-from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi import status, Response
-from fastapi.responses import HTMLResponse
-from fastapi.security import OAuth2PasswordBearer
-from fastapi.templating import Jinja2Templates
-from passlib.context import CryptContext
-from pymongo import MongoClient
-from models import Login, User, Event, Ticket, ClientUser
 from bson.objectid import ObjectId
+from fastapi import FastAPI
+from pymongo import MongoClient
+
+from models import Event, Ticket
 
 # Initialize FastAPI application and templating engine
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
-
-# Mock Redis client for development purposes (replace with actual connection)
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def hash_password(password: str) -> str:
-    hashed_password = pwd_context.hash(password)
-    print(f"Hashed password: {hashed_password}")  # Log hashed password for debugging (remove in production)
-    return hashed_password
+# templates = Jinja2Templates(directory="templates")
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+#
+# # Mock Redis client for development purposes (replace with actual connection)
+# redis_client = redis.Redis(host='localhost', port=6379, db=0)
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# Function to retrieve a MongoClient instance using the MONGO_URL environment variable
-def get_mongo_client():
-    client = MongoClient(os.environ.get("MONGO_URL"))
-    return client.your_database_name  # Replace with your actual database name
+@app.on_event("startup")
+def startup_db_client():
+    app.mongodb_client = MongoClient('localhost', 27017)
+    app.maadb_database = app.mongodb_client.maadb_tickets
+    logger.info("Connected to MongoDB")
 
 
-# Endpoint for user registration
-@app.post("/register")
-async def register(user: User):
-    hashed_password = hash_password(user.password)
-    db = get_mongo_client()
-    users_collection = db.users  # Replace with your actual collection name
-    result = users_collection.insert_one({"username": user.username, "hashed_password": hashed_password})
-    if result.inserted_id:
-        return {"message": "User created successfully!"}
-    else:
-        raise HTTPException(status_code=400, detail="User registration failed")
+@app.on_event("shutdown")
+def shutdown_db_client():
+    app.mongodb_client.close()
+    logger.info("Disconnected from MongoDB")
 
 
-# Endpoint for user login with JWT authentication
-@app.post("/login")
-async def login(user: Login = Depends(oauth2_scheme)):
-    print("serving Login page")
-    db = get_mongo_client()
-    users_collection = db.users  # Replace with your actual collection name
-    found_user = users_collection.find_one({"username": user.username})
+# def hash_password(password: str) -> str:
+#     hashed_password = pwd_context.hash(password)
+#     print(f"Hashed password: {hashed_password}")  # Log hashed password for debugging (remove in production)
+#     return hashed_password
 
-    if not found_user:
-        raise HTTPException(status_code=400, detail="Invalid username or password")
 
-    if not pwd_context.verify(user.password, found_user["hashed_password"]):
-        raise HTTPException(status_code=400, detail="Invalid username or password")
-
-    # JWT logic for access token generation and session management (omitted for brevity)
-
-    # Redirect to user profile on successful login (adapt based on your needs)
-    response = Response()
-    response.headers["Location"] = "/user_profile"
-    response.status_code = status.HTTP_302_FOUND  # Set redirect status code
-    return response
+# # Endpoint for user registration
+# @app.post("/register")
+# async def register(user: User):
+#     hashed_password = hash_password(user.password)
+#     users_collection = app.maadb_database['maadb_users']  # Replace with your actual collection name
+#     result = users_collection.insert_one({"username": user.username, "hashed_password": hashed_password})
+#     if result.inserted_id:
+#         return {"message": "User created successfully!"}
+#     else:
+#         raise HTTPException(status_code=400, detail="User registration failed")
+#
+#
+# # Endpoint for user login with JWT authentication
+# @app.post("/login")
+# async def login(user: Login = Depends(oauth2_scheme)):
+#     print("serving Login page")
+#     users_collection = app.maadb_database['maadb_users']  # Replace with your actual collection name
+#     found_user = users_collection.find_one({"username": user.username})
+#
+#     if not found_user:
+#         raise HTTPException(status_code=400, detail="Invalid username or password")
+#
+#     if not pwd_context.verify(user.password, found_user["hashed_password"]):
+#         raise HTTPException(status_code=400, detail="Invalid username or password")
+#
+#     # JWT logic for access token generation and session management (omitted for brevity)
+#
+#     # Redirect to user profile on successful login (adapt based on your needs)
+#     response = Response()
+#     response.headers["Location"] = "/user_profile"
+#     response.status_code = status.HTTP_302_FOUND  # Set redirect status code
+#     return response
 
 
 # ----------------------- Event Creation --------------------------------
 
-# User session (redis)
+# Persistence (MongoDB)
+
 @app.post('/event')
-async def create_event(event: Event):
-    pass
+async def save_event(event: Event, publish: bool = False):
+    """
+    Save an event in user table, if publish is set to true it saves it also in events collection
+    :param event:
+    :param publish:
+    :return:
+    """
+    # TODO: add cache
+    # TODO: make it transactional ?
+    app.maadb_database.user_collections.update_one({"_id": event.user_id},
+                                                   {"$push": {"owned_events": event}})
+    if publish:
+        app.maadb_database.events_collection.insert_one(event.dict())
+    # TODO raise exceptions
 
 
 @app.put('/event')
-async def update_event(event: Event):
-    pass
+async def save_event(event: Event, publish: bool = False):
+    # TODO: add cache
+    # TODO: make it transactional ?
+    user = app.maadb_database.user_collections.find_one({"_id": event.user_id},
+                                                        {"$set": {
+                                                            "owned_events.$[x]": event.dict(),
+                                                        }},
+                                                        upsert=True,
+                                                        array_filters=[{'x._id': event.id}])
+    if publish:
+        app.maadb_database.events_collection.update_one({"_id": event.id},
+                                                        {"$set": event.dict()})
+    # TODO raise exceptions
 
 
 @app.delete('/event')
-async def delete_event(event: Event):
-    pass
+async def delete_event(event_id: str, user_id: str, publish: bool = False):
+    # TODO: add cache
+    # TODO: make it transactional ?
+    event = app.maadb_database.user_collections.update_one({"_id": user_id},
+                                       {"$pull": {"owned_events.$[x]": event_id}},
+                                       array_filters=[{'x._id': event_id}])
+    if publish:
+        app.maadb_database.events_collection.delete_one({"_id": event_id})
+    return event
+    # TODO raise exceptions
 
 
 @app.get('/event')
-async def read_event(key: ObjectId):
-    pass
+async def get_saved_events(user_id: str):
+    user = app.maadb_database.user_collections.find_one({'$match': {'_id': user_id}})
+    return user.owned_events
 
 
-# Persistence (MongoDB)
-@app.post('/event/publish')
-async def publish_event(event: Event):
-    pass
-
-
-@app.put('/event/publish')
-async def update_published_event(event: Event):
-    pass
-
-
-@app.get('/event/publish')
-async def published_events():
-    pass
-
-
-@app.post('/event/save')
-async def save_event(event: Event):
-    pass
-
-
-@app.put('/event/save')
-async def save_event(event: Event):
-    pass
-
-
-@app.delete('/event/save')
-async def delete_event(event_id: ObjectId):
-    pass
-
-
-@app.get('/event/save')
-async def get_saved_events():
-    pass
+@app.get('/event/published')
+async def get_published_events(skip: int = 0):
+    events = app.maadb_database.events_collection.find_many().limit(10).skip(skip)
+    return events
 
 
 # ----------------------- Ticket Sale --------------------------------
-# User Session (Redis)
-@app.post('/ticket')
-async def buy_ticket(ticket: Ticket):
-    pass
-
-
-@app.get('/ticket')
-async def buy_ticket(ticket: Ticket):
-    pass
-
-
-@app.put('/ticket')
-async def update_ticket(ticket: Ticket):
-    pass
-
-
-@app.delete('/ticket')
-async def delete_ticket(ticket: Ticket):
-    pass
-
 
 # Persistence (Cassandra)
 @app.post('/ticket/buy')
@@ -168,22 +153,11 @@ async def delete_ticket(ticket: Ticket):
 
 
 @app.get('/ticket/buy')
-async def read_ticket(ticket_id: ObjectId):
+async def read_ticket(ticket_id: str):
     pass
 
 
 # ----------------------- Telemetry --------------------------------
-# User Session (Redis(
-@app.post('/profile/attended_events')
-async def attended_events(events: List[Event]):
-    pass
-
-
-@app.post('/profile/discount')
-async def discount_earned(client: ClientUser):
-    pass
-
-
 # Persistence (Cassandra)
 @app.get('/event/telemetry')
 async def read_telemetry():
@@ -201,11 +175,8 @@ async def read_discount():
 
 
 # Endpoint to render the registration page as the default view
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    print("Serving registration page")
-    return templates.TemplateResponse("register.html", {"request": request})
+@app.get("/")
+async def read_root():
+    return {'message': 'Hello World'}
 
 
-if __name__ == '__main__':
-    pass

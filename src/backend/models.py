@@ -1,61 +1,69 @@
-from pydantic import BaseModel, Field
-from typing import List
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
+from typing import List, Any
 from bson.objectid import ObjectId
 from datetime import date
 
 
 class Telemetry(BaseModel):
-    pass
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=ObjectId, alias="_id")
+    participants: int = Field(default_factory=int)
 
 
 class DayCapacity(BaseModel):
-    day: date
-    max_capacity: int
+    day: date = Field(..., alias="day")
+    max_capacity: int = Field(..., alias="max_capacity")
 
 
 class Event(BaseModel):
-    id: ObjectId = Field(description="Id of the event", alias="_id")
-    user_id: ObjectId = Field(description="Id of the user", alias="_id")
-    name: str
-    capacity_by_date: List[DayCapacity]
-    start_date: date
-    end_date: date
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=ObjectId, alias="_id")
+    user_id: str = Field(default_factory=ObjectId)
+    name: str = Field(default_factory=str)
+    capacity_by_date: List[DayCapacity] = Field(default_factory=list)
+    start_date: date = Field(default_factory=date)
+    end_date: date = Field(default_factory=date)
 
 
-# Data model for user login information
-class Login(BaseModel):
-    username: str
-    password: str
-
+# # Data model for user login information
+# class Login(BaseModel):
+#     username: str
+#     password: str
+#
 
 # Data model for user information stored in MongoDB
 class User(BaseModel):
-    username: str
-    hashed_password: str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=ObjectId, alias="_id")
+    username: str = Field(default_factory=str)
+    hashed_password: str = Field(default_factory=str)
 
 
 class ClientUser(User):
-    attended_events: List[ObjectId]
-    owned_tickets: List[ObjectId]
+    attended_events: List[ObjectId] = Field(default_factory=list)
+    owned_tickets: List[ObjectId] = Field(default_factory=list)
 
 
 class BusinessUser(User):
-    owned_events: List[ObjectId]
+    owned_events: List[ObjectId] = Field(default_factory=list)
 
 
 class Ticket(BaseModel):
-    event_id: ObjectId = Field(description="Id of the event", alias="_id")
-    user_id: ObjectId = Field(description="Id of the user", alias="_id")
-    price: float
-    discount: float
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=ObjectId, alias="_id")
+    user_id: str = Field(default_factory=ObjectId)
+    price: float = Field(default_factory=float)
+    discount: float = Field(default_factory=float)
 
 
 class UserSession(BaseModel):
-    user_id: str
-    user_profile: User
-    event: Event
-    ticket_sale: Ticket
-    event_telemetry: Telemetry
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=ObjectId, alias="_id")
+    user_id: str = Field(default_factory=ObjectId)
+    user_profile: User = Field(default_factory=User)
+    event: Event = Field(default_factory=Event)
+    ticket_sale: Ticket = Field(default_factory=Ticket)
+    event_telemetry: Telemetry = Field(default_factory=Telemetry)
 
 
 if __name__ == '__main__':
