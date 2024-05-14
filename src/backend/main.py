@@ -1,16 +1,24 @@
+import json
 import logging
+from http.client import HTTPException
+from typing import Union
 
 from bson.objectid import ObjectId
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 from pymongo import MongoClient
-
-from models import Event, Ticket
+from bson import json_util
+from bson.dbref import DBRef
+from pymongo.errors import PyMongoError
+from models import Event, Ticket, BusinessUser, PyObjectId
 
 # Initialize FastAPI application and templating engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI()
+
+
 # templates = Jinja2Templates(directory="templates")
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 #
@@ -21,8 +29,9 @@ app = FastAPI()
 
 @app.on_event("startup")
 def startup_db_client():
-    app.mongodb_client = MongoClient('localhost', 27017)
+    app.mongodb_client = MongoClient('mongodb://root:example@localhost:27017/')
     app.maadb_database = app.mongodb_client.maadb_tickets
+    app.mongodb_client.server_info()
     logger.info("Connected to MongoDB")
 
 
@@ -76,20 +85,47 @@ def shutdown_db_client():
 
 # Persistence (MongoDB)
 
+
+@app.post(
+    "/register/business",
+)
+async def register(username: str):
+    # TODO check user exists
+    user = BusinessUser(username=username)
+    user_id = app.maadb_database.users.insert_one(
+        user.model_dump(exclude=['id'])
+    ).inserted_id
+    new_user = app.maadb_database.users.find_one({"_id": user_id})
+    new_user = json.loads(json_util.dumps(new_user))
+    return new_user
+
+
 @app.post('/event')
-async def save_event(event: Event, publish: bool = False):
+async def save_event(event: Event, user_id: str):
     """
     Save an event in user table, if publish is set to true it saves it also in events collection
+    :param user_id:
     :param event:
     :param publish:
     :return:
     """
     # TODO: add cache
     # TODO: make it transactional ?
-    app.maadb_database.user_collections.update_one({"_id": event.user_id},
-                                                   {"$push": {"owned_events": event}})
-    if publish:
-        app.maadb_database.events_collection.insert_one(event.dict())
+    logger.info(f"Saving event {event}")
+
+    event_id = app.maadb_database.events_collection.insert_one(
+        event.model_dump(exclude=['id']),
+    ).inserted_id
+
+    logger.info(f"create_event {event_id, type(event_id)}")
+    app.maadb_database.user_collections.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$push": {
+            "owned_events": event_id
+        }})
+
+    event = json.loads(json_util.dumps(event))
+    return event
     # TODO raise exceptions
 
 
@@ -97,15 +133,17 @@ async def save_event(event: Event, publish: bool = False):
 async def save_event(event: Event, publish: bool = False):
     # TODO: add cache
     # TODO: make it transactional ?
-    user = app.maadb_database.user_collections.find_one({"_id": event.user_id},
-                                                        {"$set": {
-                                                            "owned_events.$[x]": event.dict(),
-                                                        }},
-                                                        upsert=True,
-                                                        array_filters=[{'x._id': event.id}])
+    event = jsonable_encoder(event)
+    event = app.maadb_database.user_collections.find_one({"_id": event.user_id},
+                                                         {"$set": {
+                                                             "owned_events.$[x]": event,
+                                                         }},
+                                                         upsert=True,
+                                                         array_filters=[{'x._id': event.id}])
     if publish:
         app.maadb_database.events_collection.update_one({"_id": event.id},
                                                         {"$set": event.dict()})
+    return event
     # TODO raise exceptions
 
 
@@ -114,8 +152,8 @@ async def delete_event(event_id: str, user_id: str, publish: bool = False):
     # TODO: add cache
     # TODO: make it transactional ?
     event = app.maadb_database.user_collections.update_one({"_id": user_id},
-                                       {"$pull": {"owned_events.$[x]": event_id}},
-                                       array_filters=[{'x._id': event_id}])
+                                                           {"$pull": {"owned_events.$[x]": event_id}},
+                                                           array_filters=[{'x._id': event_id}])
     if publish:
         app.maadb_database.events_collection.delete_one({"_id": event_id})
     return event
@@ -178,5 +216,3 @@ async def read_discount():
 @app.get("/")
 async def read_root():
     return {'message': 'Hello World'}
-
-
