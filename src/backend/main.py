@@ -1,11 +1,14 @@
 import logging
+import uuid
 from typing import List
 
 from bson.objectid import ObjectId
 from fastapi import FastAPI, status, Response
+from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
 from odmantic.exceptions import DocumentNotFoundError
+import aioredis
 
 from models import Ticket, EventModel, UserModel
 
@@ -16,6 +19,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/')
 engine = AIOEngine(client=client, database='maadb_tickets')
+redis_client = aioredis.from_url('redis://localhost:6379')
 
 
 # templates = Jinja2Templates(directory="templates")
@@ -70,6 +74,14 @@ engine = AIOEngine(client=client, database='maadb_tickets')
 
 # Persistence (MongoDB)
 
+async def create_session(data: dict):
+    # TODO check if session exists, return existing session
+    # TODO define data to store in session
+    token = str(uuid.uuid4())
+    await redis_client.hset(token, mapping=data)
+    await redis_client.expire(token, 3600)
+    return token
+
 
 @app.post(
     "/register/business",
@@ -83,8 +95,12 @@ async def register(username: str):
 
 @app.get('/user/business/{user_id}')
 async def get_user(user_id: str):
+    # TODO generate user_session token/id
     user = await engine.find_one(UserModel, {'_id': ObjectId(user_id)})
-    return user
+    session_token = await create_session({'user': user.model_dump_json()})
+    return JSONResponse(status_code=status.HTTP_200_OK,
+                        headers={'X-Session-Id': session_token},
+                        content=user.model_dump_json())
 
 
 @app.post('/event')
