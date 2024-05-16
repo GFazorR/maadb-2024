@@ -1,22 +1,21 @@
-import json
 import logging
-from http.client import HTTPException
-from typing import Union
+from typing import List
 
 from bson.objectid import ObjectId
-from fastapi import FastAPI
-from fastapi.encoders import jsonable_encoder
-from pymongo import MongoClient
-from bson import json_util
-from bson.dbref import DBRef
-from pymongo.errors import PyMongoError
-from models import Event, Ticket, BusinessUser, PyObjectId
+from fastapi import FastAPI, status, Response
+from motor.motor_asyncio import AsyncIOMotorClient
+from odmantic import AIOEngine
+from odmantic.exceptions import DocumentNotFoundError
+
+from models import Ticket, EventModel, UserModel
 
 # Initialize FastAPI application and templating engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI()
+client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/')
+engine = AIOEngine(client=client, database='maadb_tickets')
 
 
 # templates = Jinja2Templates(directory="templates")
@@ -25,20 +24,6 @@ app = FastAPI()
 # # Mock Redis client for development purposes (replace with actual connection)
 # redis_client = redis.Redis(host='localhost', port=6379, db=0)
 # pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-@app.on_event("startup")
-def startup_db_client():
-    app.mongodb_client = MongoClient('mongodb://root:example@localhost:27017/')
-    app.maadb_database = app.mongodb_client.maadb_tickets
-    app.mongodb_client.server_info()
-    logger.info("Connected to MongoDB")
-
-
-@app.on_event("shutdown")
-def shutdown_db_client():
-    app.mongodb_client.close()
-    logger.info("Disconnected from MongoDB")
 
 
 # def hash_password(password: str) -> str:
@@ -91,84 +76,64 @@ def shutdown_db_client():
 )
 async def register(username: str):
     # TODO check user exists
-    user = BusinessUser(username=username)
-    user_id = app.maadb_database.users.insert_one(
-        user.model_dump(exclude=['id'])
-    ).inserted_id
-    new_user = app.maadb_database.users.find_one({"_id": user_id})
-    new_user = json.loads(json_util.dumps(new_user))
-    return new_user
+    user = UserModel(username=username, role='business')
+    user = await engine.save(user)
+    return user
+
+
+@app.get('/user/business/{user_id}')
+async def get_user(user_id: str):
+    user = await engine.find_one(UserModel, {'_id': ObjectId(user_id)})
+    return user
 
 
 @app.post('/event')
-async def save_event(event: Event, user_id: str):
-    """
-    Save an event in user table, if publish is set to true it saves it also in events collection
-    :param user_id:
-    :param event:
-    :param publish:
-    :return:
-    """
+async def save_event(event: EventModel):
     # TODO: add cache
-    # TODO: make it transactional ?
-    logger.info(f"Saving event {event}")
-
-    event_id = app.maadb_database.events_collection.insert_one(
-        event.model_dump(exclude=['id']),
-    ).inserted_id
-
-    logger.info(f"create_event {event_id, type(event_id)}")
-    app.maadb_database.user_collections.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$push": {
-            "owned_events": event_id
-        }})
-
-    event = json.loads(json_util.dumps(event))
+    event = await engine.save(event)
     return event
-    # TODO raise exceptions
 
 
 @app.put('/event')
-async def save_event(event: Event, publish: bool = False):
+async def update_event(event: EventModel):
     # TODO: add cache
-    # TODO: make it transactional ?
-    event = jsonable_encoder(event)
-    event = app.maadb_database.user_collections.find_one({"_id": event.user_id},
-                                                         {"$set": {
-                                                             "owned_events.$[x]": event,
-                                                         }},
-                                                         upsert=True,
-                                                         array_filters=[{'x._id': event.id}])
-    if publish:
-        app.maadb_database.events_collection.update_one({"_id": event.id},
-                                                        {"$set": event.dict()})
-    return event
     # TODO raise exceptions
+    event = await engine.save(event)
+    return event
 
 
 @app.delete('/event')
-async def delete_event(event_id: str, user_id: str, publish: bool = False):
+async def delete_event(event: EventModel):
     # TODO: add cache
     # TODO: make it transactional ?
-    event = app.maadb_database.user_collections.update_one({"_id": user_id},
-                                                           {"$pull": {"owned_events.$[x]": event_id}},
-                                                           array_filters=[{'x._id': event_id}])
-    if publish:
-        app.maadb_database.events_collection.delete_one({"_id": event_id})
-    return event
-    # TODO raise exceptions
+    try:
+        _ = await engine.delete(event)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except DocumentNotFoundError as e:
+        return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
 @app.get('/event')
-async def get_saved_events(user_id: str):
-    user = app.maadb_database.user_collections.find_one({'$match': {'_id': user_id}})
-    return user.owned_events
+async def get_saved_events(event_id: str):
+    try:
+        events = await engine.find(EventModel, {'_id': ObjectId(event_id)})
+        return Response(status_code=status.HTTP_200_OK, content=events)
+    except DocumentNotFoundError as e:
+        return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
-@app.get('/event/published')
-async def get_published_events(skip: int = 0):
-    events = app.maadb_database.events_collection.find_many().limit(10).skip(skip)
+@app.get('/event/published', response_model=List[EventModel])
+async def get_published_events():
+    try:
+        events = await engine.find(EventModel, {'published': True})
+        return events
+    except DocumentNotFoundError as e:
+        return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
+
+
+@app.get('/event/{user_id}', response_model=List[EventModel])
+async def get_event(user_id: str):
+    events = await engine.find(EventModel, {'owner': ObjectId(user_id)})
     return events
 
 
