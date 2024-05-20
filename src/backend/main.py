@@ -1,25 +1,31 @@
+import json
 import logging
 import uuid
-from typing import List
+from typing import List, Annotated, Union
 
 from bson.objectid import ObjectId
-from fastapi import FastAPI, status, Response
+from fastapi import FastAPI, status, Response, Header, Depends, Cookie, BackgroundTasks
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
 from odmantic.exceptions import DocumentNotFoundError
-import aioredis
 
 from models import Ticket, EventModel, UserModel
+import user
 
 # Initialize FastAPI application and templating engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app = FastAPI()
+
+
 client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/')
 engine = AIOEngine(client=client, database='maadb_tickets')
-redis_client = aioredis.from_url('redis://localhost:6379')
+
+app = FastAPI()
+app.include_router(user.router)
+app.engine = engine
+
 
 
 # templates = Jinja2Templates(directory="templates")
@@ -74,46 +80,22 @@ redis_client = aioredis.from_url('redis://localhost:6379')
 
 # Persistence (MongoDB)
 
-async def create_session(data: dict):
-    # TODO check if session exists, return existing session
-    # TODO define data to store in session
-    token = str(uuid.uuid4())
-    await redis_client.hset(token, mapping=data)
-    await redis_client.expire(token, 3600)
-    return token
-
-
-@app.post(
-    "/register/business",
-)
-async def register(username: str):
-    # TODO check user exists
-    user = UserModel(username=username, role='business')
-    user = await engine.save(user)
-    return user
-
-
-@app.get('/user/business/{user_id}')
-async def get_user(user_id: str):
-    # TODO generate user_session token/id
-    user = await engine.find_one(UserModel, {'_id': ObjectId(user_id)})
-    session_token = await create_session({'user': user.model_dump_json()})
-    return JSONResponse(status_code=status.HTTP_200_OK,
-                        headers={'X-Session-Id': session_token},
-                        content=user.model_dump_json())
-
 
 @app.post('/event')
-async def save_event(event: EventModel):
-    # TODO: add cache
+async def save_event(background_task: BackgroundTasks, event: EventModel,
+                     header: Annotated[Union[str, None], Header()] = None):
+    print(type(header), header)
+    user = await get_session(session_id=header)
+    if not event.owner:
+        event.owner.append(user.id)
     event = await engine.save(event)
+    background_task.add_task(set_cache, event)
     return event
 
 
 @app.put('/event')
 async def update_event(event: EventModel):
     # TODO: add cache
-    # TODO raise exceptions
     event = await engine.save(event)
     return event
 
@@ -130,10 +112,17 @@ async def delete_event(event: EventModel):
 
 
 @app.get('/event')
-async def get_saved_events(event_id: str):
+async def get_saved_events(background_task: BackgroundTasks, event_id: str):
+    events = await get_cache(event_id)
+    if events:
+        return Response(status_code=status.HTTP_200_OK, content=events)
+
     try:
         events = await engine.find(EventModel, {'_id': ObjectId(event_id)})
-        return Response(status_code=status.HTTP_200_OK, content=events)
+        event = events[0]
+        print(type(event), event)
+        background_task.add_task(set_cache, event)
+        return Response(status_code=status.HTTP_200_OK, content=event.model_dump_json())
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 

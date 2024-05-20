@@ -1,8 +1,9 @@
 import datetime
-from typing import List
+from typing import List, Union, Optional
 
 from odmantic import Model, EmbeddedModel, Reference
 from pydantic import BaseModel, Field, ConfigDict
+from bson import ObjectId
 
 
 class UserModel(Model):
@@ -20,7 +21,7 @@ class DayCapacityModel(EmbeddedModel):
 
 
 class EventModel(Model):
-    owner: UserModel = Reference()
+    owner: List[ObjectId]
     name: str
     published: bool
     capacity_by_day: List[DayCapacityModel] = []
