@@ -10,7 +10,15 @@ from fastapi import (
 )
 from typing import Optional, Annotated, Union, Dict, List
 from utils import get_engine
-from redis_utils import get_cache, get_session, set_cache, create_session, delete_cache
+from redis_utils import (
+    get_cache,
+    get_session,
+    set_cache,
+    create_session,
+    delete_cache,
+    get_cached_published,
+    set_cache_published
+)
 from odmantic.exceptions import DocumentNotFoundError
 import json
 from bson import ObjectId
@@ -32,7 +40,9 @@ async def save_event(background_task: BackgroundTasks, event: EventModel,
 
 
 @router.put('/event')
-async def update_event(background_task: BackgroundTasks, event: EventModel, engine=Depends(get_engine)):
+async def update_event(background_task: BackgroundTasks,
+                       event: EventModel,
+                       engine=Depends(get_engine)):
     event = await engine.save(event)
     background_task.add_task(set_cache, event)
     return event
@@ -67,9 +77,13 @@ async def get_saved_events(background_task: BackgroundTasks,
 
 
 @router.get('/event/published', response_model=List[EventModel])
-async def get_published_events():
+async def get_published_events(background_task: BackgroundTasks, engine=Depends(get_engine)):
+    events = await get_cached_published()
+    if events:
+        return events
     try:
         events = await engine.find(EventModel, {'published': True})
+        background_task.add_task(set_cache_published, events)
         return events
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
