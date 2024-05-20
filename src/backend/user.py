@@ -1,19 +1,18 @@
 from urllib.request import Request
 
 from fastapi import FastAPI, APIRouter, Request, Depends, Response, status
-from redis import create_session, get_session
+from redis_utils import create_session, get_session
 from models import UserModel, EventModel
 from odmantic import AIOEngine
 from typing import Annotated
 from bson import ObjectId
 import uuid
+from utils import get_engine
 
 router = APIRouter()
 
 
-def get_engine(request: Request):
-    engine = request.app.engine
-    return engine
+
 
 
 @router.post(

@@ -1,6 +1,7 @@
 import aioredis
 from models import Ticket, EventModel, UserModel
 import uuid
+import json
 
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
