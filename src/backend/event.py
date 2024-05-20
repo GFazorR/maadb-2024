@@ -10,9 +10,10 @@ from fastapi import (
 )
 from typing import Optional, Annotated, Union, Dict, List
 from utils import get_engine
-from redis_utils import get_cache, get_session, set_cache, create_session
+from redis_utils import get_cache, get_session, set_cache, create_session, delete_cache
+from odmantic.exceptions import DocumentNotFoundError
 import json
-
+from bson import ObjectId
 
 router = APIRouter()
 
@@ -31,35 +32,36 @@ async def save_event(background_task: BackgroundTasks, event: EventModel,
 
 
 @router.put('/event')
-async def update_event(event: EventModel):
-    # TODO: add cache
+async def update_event(background_task: BackgroundTasks, event: EventModel, engine=Depends(get_engine)):
     event = await engine.save(event)
+    background_task.add_task(set_cache, event)
     return event
 
 
 @router.delete('/event')
-async def delete_event(event: EventModel):
+async def delete_event(background_task: BackgroundTasks, event: EventModel, engine=Depends(get_engine)):
     # TODO: add cache
     # TODO: make it transactional ?
     try:
         _ = await engine.delete(event)
+        background_task.add_task(delete_cache, event)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
 @router.get('/event')
-async def get_saved_events(background_task: BackgroundTasks, event_id: str):
-    events = await get_cache(event_id)
-    if events:
-        return Response(status_code=status.HTTP_200_OK, content=events)
+async def get_saved_events(background_task: BackgroundTasks,
+                           event_id: str,
+                           engine=Depends(get_engine)):
+    event = await get_cache(event_id)
+    if event:
+        return Response(status_code=status.HTTP_200_OK, content=event.model_dump_json())
 
     try:
-        events = await engine.find(EventModel, {'_id': ObjectId(event_id)})
-        event = events[0]
-        print(type(event), event)
-        background_task.add_task(set_cache, event)
-        return Response(status_code=status.HTTP_200_OK, content=event.model_dump_json())
+        event = await engine.find(EventModel, {'_id': ObjectId(event_id)})
+        background_task.add_task(set_cache, event[0])
+        return Response(status_code=status.HTTP_200_OK, content=event[0].model_dump_json())
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 

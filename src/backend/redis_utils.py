@@ -6,6 +6,10 @@ import json
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
 
+async def delete_cache(event: EventModel):
+    await redis_client.delete(str(event.id))
+
+
 async def create_session(data: dict):
     # TODO check if session exists, return existing session
     # TODO define data to store in session
@@ -30,7 +34,7 @@ async def set_cache(event: EventModel):
 
 
 async def get_cache(key: str):
-    cached_event = await redis_client.get(key)
+    cached_event = await redis_client.hget(name='event', key=key)
     if cached_event:
         event = EventModel.parse_obj(json.loads(cached_event))
         return event
