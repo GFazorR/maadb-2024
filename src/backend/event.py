@@ -26,65 +26,42 @@ from bson import ObjectId
 router = APIRouter()
 
 
-@router.post('/event')
-async def save_event(background_task: BackgroundTasks, event: EventModel,
-                     header: Annotated[Union[str, None], Header()] = None,
-                     engine=Depends(get_engine)):
-    print(type(header), header)
-    user = await get_session(session_id=header)
-    if not event.owner:
-        event.owner.append(user.id)
-    event = await engine.save(event)
-    background_task.add_task(set_cache, event)
-    return event
-
-
+# TODO cache write behind per non pubblicati
+# TODO cache write through per pubblicati
 @router.put('/event')
-async def update_event(background_task: BackgroundTasks,
-                       event: EventModel,
-                       engine=Depends(get_engine)):
+@router.post('/event')
+async def save_event(event: EventModel,
+                     engine=Depends(get_engine)):
     event = await engine.save(event)
-    background_task.add_task(set_cache, event)
     return event
 
 
+# TODO cache write behind per non pubblicati
+# TODO cache write through per pubblicati
 @router.delete('/event')
-async def delete_event(background_task: BackgroundTasks, event: EventModel, engine=Depends(get_engine)):
-    # TODO: add cache
-    # TODO: make it transactional ?
+async def delete_event(event: EventModel, engine=Depends(get_engine)):
     try:
         _ = await engine.delete(event)
-        background_task.add_task(delete_cache, event)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
+# TODO: refactor
 @router.get('/event')
-async def get_saved_events(background_task: BackgroundTasks,
-                           event_id: str,
+async def get_saved_events(event_id: str,
                            engine=Depends(get_engine)):
-    event = await get_cache(event_id)
-    if event:
-        return Response(status_code=status.HTTP_200_OK, content=event.model_dump_json())
-
     try:
         event = await engine.find(EventModel, {'_id': ObjectId(event_id)})
-        background_task.add_task(set_cache, event[0])
         return Response(status_code=status.HTTP_200_OK, content=event[0].model_dump_json())
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
 @router.get('/event/published', response_model=List[EventModel])
-async def get_published_events(background_task: BackgroundTasks,
-                               engine=Depends(get_engine)):
-    events = await get_cached_published()
-    if events:
-        return events
+async def get_published_events(engine=Depends(get_engine)):
     try:
         events = await engine.find(EventModel, {'published': True})
-        background_task.add_task(set_cache_published, events)
         return events
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
@@ -92,9 +69,7 @@ async def get_published_events(background_task: BackgroundTasks,
 
 @router.get('/event/{user_id}', response_model=List[EventModel])
 async def get_event(user_id: str,
-                    background_task: BackgroundTasks,
                     engine=Depends(get_engine)):
-    events = await get_cache()
     events = await engine.find(EventModel, {'owner': ObjectId(user_id)})
     return events
 

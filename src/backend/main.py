@@ -15,7 +15,7 @@ import user
 import event
 import tickets
 import telemetry
-
+import user_session
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,12 @@ client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/')
 engine = AIOEngine(client=client, database='maadb_tickets')
 
 app = FastAPI()
+app.include_router(user_session.router)
 app.include_router(user.router)
 app.include_router(event.router)
 app.include_router(tickets.router)
 app.include_router(telemetry.router)
+
 app.engine = engine
 
 

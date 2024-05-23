@@ -9,6 +9,18 @@ import pickle
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
 
+async def upsert_event_session(user_id: str, event: EventModel):
+    await redis_client.hset(user_id, key='events', value=event.model_dump_json())
+
+
+async def delete_event_session(user_id: str):
+    return redis_client.hdel(user_id, key='events')
+
+
+async def get_event_session(user_id: str) -> EventModel:
+    return await redis_client.hget(user_id)
+
+
 async def delete_cache(event: EventModel):
     await redis_client.delete(str(event.id))
 
@@ -69,7 +81,6 @@ async def set_cached_user_events(user_id: str, events: List[EventModel]):
 
 async def get_cached_user_events(user_id: str):
     cached_events = await redis_client.hgetall(user_id=user_id)
-
 
 
 if __name__ == '__main__':
