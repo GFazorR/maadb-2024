@@ -24,9 +24,9 @@ async def create_session(data: dict):
 
 async def get_session(session_id: str):
     user = await redis_client.hgetall(session_id)
-    print(user)
-    user = UserModel.parse_obj(json.loads(user['user']))
-    return user
+    if user:
+        user = UserModel.parse_obj(json.loads(user['user']))
+        return user
 
 
 async def set_cache(event: EventModel):
@@ -57,6 +57,19 @@ async def get_cached_published():
             event = EventModel.parse_obj(json.loads(event))
             result.append(event)
         return result
+
+
+async def set_cached_user_events(user_id: str, events: List[EventModel]):
+    async with redis_client.pipeline() as pipe:
+        for event in events:
+            pipe.hset(str(user_id), key='user_events', value=event.model_dump_json())
+            pipe.expire('event', 3600)
+        await pipe.execute()
+
+
+async def get_cached_user_events(user_id: str):
+    cached_events = await redis_client.hgetall(user_id=user_id)
+
 
 
 if __name__ == '__main__':

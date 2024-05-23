@@ -13,8 +13,8 @@ from odmantic.exceptions import DocumentNotFoundError
 from models import Ticket, EventModel, UserModel
 import user
 import event
-
-# Initialize FastAPI application and templating engine
+import tickets
+import telemetry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +25,8 @@ engine = AIOEngine(client=client, database='maadb_tickets')
 app = FastAPI()
 app.include_router(user.router)
 app.include_router(event.router)
+app.include_router(tickets.router)
+app.include_router(telemetry.router)
 app.engine = engine
 
 
@@ -84,41 +86,6 @@ app.engine = engine
 # ----------------------- Ticket Sale --------------------------------
 
 # Persistence (Cassandra)
-@app.post('/ticket/buy')
-async def buy_ticket(ticket: Ticket):
-    pass
-
-
-@app.put('/ticket/buy')
-async def update_ticket(ticket: Ticket):
-    pass
-
-
-@app.delete('/ticket/buy')
-async def delete_ticket(ticket: Ticket):
-    pass
-
-
-@app.get('/ticket/buy')
-async def read_ticket(ticket_id: str):
-    pass
-
-
-# ----------------------- Telemetry --------------------------------
-# Persistence (Cassandra)
-@app.get('/event/telemetry')
-async def read_telemetry():
-    pass
-
-
-@app.get('/profile/attended_events')
-async def read_attended_events():
-    pass
-
-
-@app.get('/profile/discount')
-async def read_discount():
-    pass
 
 
 # Endpoint to render the registration page as the default view

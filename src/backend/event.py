@@ -77,7 +77,8 @@ async def get_saved_events(background_task: BackgroundTasks,
 
 
 @router.get('/event/published', response_model=List[EventModel])
-async def get_published_events(background_task: BackgroundTasks, engine=Depends(get_engine)):
+async def get_published_events(background_task: BackgroundTasks,
+                               engine=Depends(get_engine)):
     events = await get_cached_published()
     if events:
         return events
@@ -90,7 +91,10 @@ async def get_published_events(background_task: BackgroundTasks, engine=Depends(
 
 
 @router.get('/event/{user_id}', response_model=List[EventModel])
-async def get_event(user_id: str):
+async def get_event(user_id: str,
+                    background_task: BackgroundTasks,
+                    engine=Depends(get_engine)):
+    events = await get_cache()
     events = await engine.find(EventModel, {'owner': ObjectId(user_id)})
     return events
 
