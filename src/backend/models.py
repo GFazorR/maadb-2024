@@ -20,6 +20,7 @@ class DayCapacityModel(EmbeddedModel):
     max_capacity: int
 
 
+# TODO make model flexible
 class EventModel(Model):
     owner: List[ObjectId]
     name: str
