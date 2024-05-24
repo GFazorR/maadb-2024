@@ -10,15 +10,16 @@ redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True
 
 
 async def upsert_event_session(user_id: str, event: EventModel):
-    await redis_client.hset(user_id, key='events', value=event.model_dump_json())
+    await redis_client.hset('events', key=user_id, value=event.model_dump_json())
 
 
 async def delete_event_session(user_id: str):
-    return redis_client.hdel(user_id, key='events')
+    return await redis_client.hdel('events', user_id)
 
 
 async def get_event_session(user_id: str) -> EventModel:
-    return await redis_client.hget(user_id)
+    event = await redis_client.hget('events', key=user_id)
+    return EventModel.parse_obj(json.loads(event))
 
 
 async def delete_cache(event: EventModel):

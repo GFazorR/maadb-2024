@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/session/events/{user_id}")
 async def get_session(user_id: str):
-    event = redis_utils.get_event_session(user_id)
+    event = await redis_utils.get_event_session(user_id)
     if not event:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Event not found")
     return event
@@ -28,7 +28,7 @@ async def create_session(user_id: str, event: EventModel):
 
 @router.delete("/session/events/{user_id}")
 async def delete_session(user_id: str):
-    event_id = redis_utils.delete_event_session(user_id)
+    event_id = await redis_utils.delete_event_session(user_id)
     if not event_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Event not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
