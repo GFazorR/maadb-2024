@@ -6,9 +6,8 @@ db = 'maadb_tickets'
 
 connection = MongoConnection('', '', '', '', mongoUrl)
 
-movieConnector = MongoConnector(connection, db, 'events_collection', 'id')
+event_connector = MongoConnector(connection, db, 'events_collection', 'id')
 
-# TODO: change movie to events
-RGJSONWriteBehind(GB, keysPrefix='MovieEntity',
-                  connector=movieConnector, name='MoviesWriteBehind',
+RGJSONWriteBehind(GB, keysPrefix='EventEntity',
+                  connector=event_connector, name='EventsWriteBehind',
                   version='99.99.99')

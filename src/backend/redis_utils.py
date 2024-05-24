@@ -6,6 +6,7 @@ import json
 from pydantic.json import pydantic_encoder
 import pickle
 
+
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
 
@@ -75,13 +76,18 @@ async def get_cached_published():
 async def set_cached_user_events(user_id: str, events: List[EventModel]):
     async with redis_client.pipeline() as pipe:
         for event in events:
-            pipe.hset(str(user_id), key='user_events', value=event.model_dump_json())
+            pipe.hset('user_events', key=str(user_id), value=event.model_dump_json())
             pipe.expire('event', 3600)
         await pipe.execute()
 
 
 async def get_cached_user_events(user_id: str):
-    cached_events = await redis_client.hgetall(user_id=user_id)
+    cached_events = await redis_client.hgetall('user_events')
+    if cached_events:
+        result = [EventModel.parse_obj(json.loads(v))
+                  for k, v in cached_events.items()
+                  if v == user_id]
+        return result
 
 
 if __name__ == '__main__':
