@@ -8,8 +8,6 @@ from bson import ObjectId
 from odmantic import Model, EmbeddedModel
 from pydantic import BaseModel, Field, ConfigDict, Extra
 
-from src.backend import event
-
 
 class UserModel(Model):
     """

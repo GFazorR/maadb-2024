@@ -29,3 +29,15 @@ services:
       ME_CONFIG_MONGODB_ADMINPASSWORD: example
       ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
       ME_CONFIG_BASICAUTH: false
+
+  cassandra:
+    image: cassandra:latest
+    restart: always
+    ports:
+      - "9042:9042"
+      - "9160:9160"
+    environment:
+      CASSANDRA_USER: admin
+      CASSANDRA_PASSWORD: admin
+
+
