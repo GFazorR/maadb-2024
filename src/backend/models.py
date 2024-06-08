@@ -64,12 +64,13 @@ class Telemetry(BaseModel):
 class Ticket(BaseModel):
     """
     This class represents the ticket model.
-    :param user_id: str    :param event_id: str
+    :param user_id: str    :param id: str
     :param price: float    :param discount: float
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
+    id: str
+    event_name: str
     user_id: str
-    event_id: str
     price: float
     discount: float
 

@@ -30,7 +30,7 @@ async def create_session(user_id: str, event: EventModel):
     """
     Performs an upsert for an EventModel session associated with a given user ID.
     :param user_id: str
-    :param event: EventModel    :return:  | HTTPException
+    :param event: EventModel    :return:  EventModel | HTTPException
     """
     try:
         await redis_utils.upsert_event_session(user_id=user_id, event=event)

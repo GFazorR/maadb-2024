@@ -1,12 +1,21 @@
-from models import Ticket
+from models import Ticket, EventModel
 from fastapi import APIRouter, Depends, HTTPException
+from cassandra.cluster import Cluster
+from cassandra.query import SimpleStatement
 
 router = APIRouter()
+cluster = Cluster(port=9042)
+session = cluster.connect('tickets')
 
+# TODO Figure out schema and other stuff
 
 @router.post('/ticket/buy')
 async def buy_ticket(ticket: Ticket):
-    pass
+    # TODO create query and return result
+    query = SimpleStatement(f'INSERT INTO {ticket.event_name} (id, user_id, price, discount) VALUES (%s, %s, %s, %s)')
+    parameters = (ticket.id, ticket.user_id, ticket.price, ticket.discount)
+    result = session.execute(query, parameters)
+    return result
 
 
 @router.put('/ticket/buy')
