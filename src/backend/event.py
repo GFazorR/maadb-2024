@@ -1,9 +1,13 @@
 """
 This module implements endpoints for crud operations over events.
 """
+import uuid
 from typing import List
 
+import bson
 from bson import ObjectId
+from cassandra.cluster import Session, ConsistencyLevel, RetryPolicy, NeverRetryPolicy
+from cassandra.query import SimpleStatement, BatchStatement, BatchType
 from fastapi import (
     APIRouter,
     Depends,
@@ -23,7 +27,7 @@ from redis_utils import (
     set_cached_user_events,
     get_cached_user_events
 )
-from utils import get_engine
+from utils import get_engine, get_session
 import logging
 
 router = APIRouter()
@@ -31,9 +35,41 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@router.put('/event')
 @router.post('/event')
 async def save_event(
+        background_tasks: BackgroundTasks,
+        event: EventModel,
+        engine=Depends(get_engine),
+        session=Depends(get_session),
+):
+    """
+    Performs an upsert for an EventModel on MongoDB with redis caching.
+    :param background_tasks: BackgroundTasks object
+    :param event: EventModel
+    :param engine: Depends on engine
+    :return: EventModel
+    """
+    background_tasks.add_task(set_cache, event)
+    event = await engine.save(event)
+    query = SimpleStatement('INSERT INTO tickets (event_id, ticket_id, available, price) Values (?,?,?,?)')
+
+    print(event.id, type(event.id))
+    for cap in event.capacity_by_day:
+        for _ in range(cap.max_capacity):
+            session.execute(query, [event.id, uuid.uuid4(), True, cap.price])
+
+
+    # insert_stats = SimpleStatement(
+    #     """INSERT INTO stats (event_id , available_tickets, on_sale, purchased_tickets, revenues)
+    #     VALUES (?,?,?,?,?)
+    #     """
+    # )
+    # session.execute(insert_stats, [event.id, sum(cap.max_capacity for cap in event.capacity_by_day), True, 0, 0.0])
+    return event
+
+
+@router.put('/event')
+async def update_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
         engine=Depends(get_engine)
@@ -47,6 +83,8 @@ async def save_event(
     """
     background_tasks.add_task(set_cache, event)
     event = await engine.save(event)
+    # TODO if event published and it wasn't published before, generate tickets on cassandra
+    # TODO also add an entry with the total number of tickets available in ticket_sales
     return event
 
 

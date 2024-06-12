@@ -39,6 +39,7 @@ async def get_event_session(user_id: str) -> EventModel:
     :return: EventModel
     """
     event = await redis_client.hget('events', key=user_id)
+
     return EventModel.parse_obj(json.loads(event))
 
 

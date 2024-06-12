@@ -30,6 +30,7 @@ class DayCapacityModel(EmbeddedModel):
     """
     day: datetime.datetime
     max_capacity: int
+    price: float
 
 
 class EventModel(Model, extra=Extra.allow):

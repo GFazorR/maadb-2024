@@ -13,6 +13,8 @@ import telemetry
 import tickets
 import user
 import user_session
+from cassandra.cluster import Cluster
+
 
 """
 Initialize logging, mongodb and FastApi routing.
@@ -23,6 +25,9 @@ logger = logging.getLogger(__name__)
 client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/')
 engine = AIOEngine(client=client, database='maadb_tickets')
 
+cluster = Cluster(port=9042)
+session = cluster.connect('tickets')
+
 app = FastAPI()
 app.include_router(user_session.router)
 app.include_router(user.router)
@@ -31,6 +36,7 @@ app.include_router(tickets.router)
 app.include_router(telemetry.router)
 
 app.engine = engine
+app.session = session
 
 
 # TODO: query mongo and put cached data to redis
