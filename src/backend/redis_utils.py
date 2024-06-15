@@ -8,7 +8,7 @@ from typing import List
 
 from redis import asyncio as aioredis
 
-from models import EventModel, UserModel
+from models import EventModel, UserModel, DayCapacityModel
 
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
@@ -39,7 +39,6 @@ async def get_event_session(user_id: str) -> EventModel:
     :return: EventModel
     """
     event = await redis_client.hget('events', key=user_id)
-
     return EventModel.parse_obj(json.loads(event))
 
 
@@ -153,6 +152,25 @@ async def get_cached_user_events(user_id: str):
                   for k, v in cached_events.items()
                   if v == user_id]
         return result
+
+
+async def set_cache_tickets(event):
+    async with redis_client.pipeline() as pipe:
+        for cap in event.capacity_by_day:
+            pipe.hset(event.id, key=str(cap.day), value=cap.max_capacity)
+        await pipe.execute()
+
+
+async def decrease_ticket_cache(event: EventModel):
+    return None
+
+
+async def increase_ticket_cache(event: EventModel):
+    return None
+
+
+def get_cache_tickets(event: EventModel):
+    return None
 
 
 if __name__ == '__main__':

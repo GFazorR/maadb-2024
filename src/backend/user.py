@@ -1,8 +1,8 @@
 """
 This module implements endpoints for crud operations over users.
 """
+import uuid
 
-from bson import ObjectId
 from fastapi import APIRouter, Depends, Response, status
 
 from models import UserModel
@@ -35,7 +35,7 @@ async def get_user(user_id: str, engine=Depends(get_engine)):
     :return: Response
     """
     # TODO generate user_session token/id
-    user = await engine.find_one(UserModel, {'_id': ObjectId(user_id)})
+    user = await engine.find_one(UserModel, {'_id': uuid.UUID(user_id)})
     session_token = await create_session({'user': user.model_dump_json()})
     return Response(status_code=status.HTTP_200_OK,
                     headers={'X-Session-Id': session_token},

@@ -2,18 +2,20 @@
 This module contains the data models used in the application.
 """
 import datetime
-from typing import List
+import uuid
+from typing import List, Any
 
-from bson import ObjectId
-from odmantic import Model, EmbeddedModel
-from pydantic import BaseModel, Field, ConfigDict, Extra
+import pydantic
+from odmantic import Model, EmbeddedModel, Field
+from pydantic import BaseModel, ConfigDict, Extra
 
 
-class UserModel(Model):
+class UserModel(Model, extra=Extra.allow):
     """
     This class represents the user model.
     :param username: str    :param role: str
     """
+    id: uuid.UUID = Field(primary_field=True, default=uuid.uuid4())
     username: str
     role: str
 
@@ -29,28 +31,38 @@ class DayCapacityModel(EmbeddedModel):
     :param max_capacity: int
     """
     day: datetime.datetime
-    max_capacity: int
-    price: float
+    max_capacity: int = 100
+    price: float = 10.0
 
 
 class EventModel(Model, extra=Extra.allow):
     """
     This class represents the event model.
-    :param owner: List[ObjectId]
+    :param owner: List[UUID]
     :param name: str
     :param published: bool
     :param capacity_by_day: List[DayCapacityModel]
     :param start_datetime: datetime    :param end_datetime: datetime
     """
-    owner: List[ObjectId]
+    id: uuid.UUID = Field(primary_field=True, default=uuid.uuid4())
+    owner: List[uuid.UUID]
     name: str
     published: bool
-    capacity_by_day: List[DayCapacityModel] = []
     start_datetime: datetime.datetime
     end_datetime: datetime.datetime
+    capacity_by_day: List[DayCapacityModel] = []
     model_config = {
         'collection': 'events_collection'
     }
+
+    # def populate_capacity_by_day(self):
+    #     self.capacity_by_day = []
+    #     for x in range((self.end_datetime - self.start_datetime).days):
+    #         self.capacity_by_day.append(DayCapacityModel(
+    #             day=self.start_datetime + datetime.timedelta(days=x),
+    #             max_capacity=self.__pydantic_extra__.get('max_capacity', 100),
+    #             price=self.__pydantic_extra__.get('price', 10.0)
+    #         ))
 
 
 class Telemetry(BaseModel):
@@ -62,18 +74,19 @@ class Telemetry(BaseModel):
     participants: int = Field(default_factory=int)
 
 
-class Ticket(BaseModel):
+class Ticket(BaseModel, extra='allow'):
     """
     This class represents the ticket model.
     :param user_id: str    :param id: str
     :param price: float    :param discount: float
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-    id: str
-    event_name: str
+    event_id: str
     user_id: str
-    price: float
+    ticket_price: float
     discount: float
+    paid_price: float
+    event_day: datetime.datetime
+    purchased_date: datetime.datetime
 
 
 class UserSession(BaseModel):
@@ -86,7 +99,7 @@ class UserSession(BaseModel):
     :param event_telemetry: TelemetryModel
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-    id: str = Field(alias="_id")
+    id: str
     user_id: str
     user_profile: UserModel
     event: EventModel

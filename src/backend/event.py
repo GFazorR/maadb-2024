@@ -1,13 +1,13 @@
 """
 This module implements endpoints for crud operations over events.
 """
+import datetime
+import logging
 import uuid
 from typing import List
 
-import bson
-from bson import ObjectId
-from cassandra.cluster import Session, ConsistencyLevel, RetryPolicy, NeverRetryPolicy
-from cassandra.query import SimpleStatement, BatchStatement, BatchType
+from cassandra.cluster import ConsistencyLevel
+from cassandra.query import SimpleStatement
 from fastapi import (
     APIRouter,
     Depends,
@@ -25,10 +25,11 @@ from redis_utils import (
     get_cached_published,
     set_cache_published,
     set_cached_user_events,
-    get_cached_user_events
+    get_cached_user_events,
+    set_cache_tickets,
+    get_cache_tickets
 )
 from utils import get_engine, get_session
-import logging
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
@@ -44,27 +45,24 @@ async def save_event(
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
+    :param session:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
     :return: EventModel
     """
-    background_tasks.add_task(set_cache, event)
     event = await engine.save(event)
-    query = SimpleStatement('INSERT INTO tickets (event_id, ticket_id, available, price) Values (?,?,?,?)')
 
-    print(event.id, type(event.id))
-    for cap in event.capacity_by_day:
-        for _ in range(cap.max_capacity):
-            session.execute(query, [event.id, uuid.uuid4(), True, cap.price])
+    insert_ticket = SimpleStatement(
+        """INSERT INTO events (event_id, event_day, available_tickets, purchased_tickets)
+         VALUES (%s, %s, %s, %s)""", consistency_level=ConsistencyLevel.ONE
+    )
 
-
-    # insert_stats = SimpleStatement(
-    #     """INSERT INTO stats (event_id , available_tickets, on_sale, purchased_tickets, revenues)
-    #     VALUES (?,?,?,?,?)
-    #     """
-    # )
-    # session.execute(insert_stats, [event.id, sum(cap.max_capacity for cap in event.capacity_by_day), True, 0, 0.0])
+    if event.published:
+        for cap in event.capacity_by_day:
+            session.execute(insert_ticket, (event.id, cap.day, cap.max_capacity, 0))
+        background_tasks.add_task(set_cache, event)
+    # TODO cache?
     return event
 
 
@@ -72,22 +70,33 @@ async def save_event(
 async def update_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
-        engine=Depends(get_engine)
+        engine=Depends(get_engine),
+        session=Depends(get_session),
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
+    :param session:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
     :return: EventModel
     """
-    background_tasks.add_task(set_cache, event)
     event = await engine.save(event)
-    # TODO if event published and it wasn't published before, generate tickets on cassandra
-    # TODO also add an entry with the total number of tickets available in ticket_sales
+    # TODO update available with max_capacity and purchased tickets
+    insert_ticket = SimpleStatement(
+        """INSERT INTO events (event_id, event_day, available_tickets, purchased_tickets)
+         VALUES (%s, %s, %s, 0) IF NOT EXISTS""", consistency_level=ConsistencyLevel.ONE
+    )
+
+    if event.published:
+        for cap in event.capacity_by_day:
+            session.execute(insert_ticket, (event.id, cap.day, cap.max_capacity))
+        background_tasks.add_task(set_cache, event)
+    # TODO cache?
     return event
 
 
+# TODO manage tickets when event deleted
 @router.delete('/event')
 async def delete_event(
         background_task: BackgroundTasks,
@@ -127,7 +136,7 @@ async def get_saved_events(background_task: BackgroundTasks,
         return Response(status_code=status.HTTP_200_OK, content=event.model_dump_json())
 
     try:
-        event = await engine.find(EventModel, {'_id': ObjectId(event_id)})
+        event = await engine.find(EventModel, {'_id': uuid.UUID(event_id)})
         background_task.add_task(set_cache, event[0])
         return Response(status_code=status.HTTP_200_OK, content=event[0].model_dump_json())
     except DocumentNotFoundError as e:
@@ -171,7 +180,7 @@ async def get_event(user_id: str,
     if events:
         return events
     try:
-        events = await engine.find(EventModel, {'owner': ObjectId(user_id)})
+        events = await engine.find(EventModel, {'owner': uuid.UUID(user_id)})
         background_task.add_task(set_cached_user_events, user_id, events)
         return events
     except DocumentNotFoundError as e:
