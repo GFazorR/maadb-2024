@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import List
 
-from cassandra.cluster import ConsistencyLevel
+from cassandra.cluster import ConsistencyLevel, Session
 from cassandra.query import SimpleStatement
 from fastapi import (
     APIRouter,
@@ -52,17 +52,16 @@ async def save_event(
     :return: EventModel
     """
     event = await engine.save(event)
+    background_tasks.add_task(set_cache, event)
 
     insert_ticket = SimpleStatement(
-        """INSERT INTO events (event_id, event_day, available_tickets, purchased_tickets)
-         VALUES (%s, %s, %s, %s)""", consistency_level=ConsistencyLevel.ONE
+        """INSERT INTO events (event_id, event_day, purchased_tickets)
+         VALUES (%s, %s, %s)""", consistency_level=ConsistencyLevel.QUORUM
     )
-
     if event.published:
         for cap in event.capacity_by_day:
-            session.execute(insert_ticket, (event.id, cap.day, cap.max_capacity, 0))
-        background_tasks.add_task(set_cache, event)
-    # TODO cache?
+            session.execute(insert_ticket, (event.id, cap.day, 0))
+
     return event
 
 
@@ -71,28 +70,16 @@ async def update_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
         engine=Depends(get_engine),
-        session=Depends(get_session),
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
-    :param session:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
     :return: EventModel
     """
     event = await engine.save(event)
-    # TODO update available with max_capacity and purchased tickets
-    insert_ticket = SimpleStatement(
-        """INSERT INTO events (event_id, event_day, available_tickets, purchased_tickets)
-         VALUES (%s, %s, %s, 0) IF NOT EXISTS""", consistency_level=ConsistencyLevel.ONE
-    )
-
-    if event.published:
-        for cap in event.capacity_by_day:
-            session.execute(insert_ticket, (event.id, cap.day, cap.max_capacity))
-        background_tasks.add_task(set_cache, event)
-    # TODO cache?
+    background_tasks.add_task(set_cache, event)
     return event
 
 

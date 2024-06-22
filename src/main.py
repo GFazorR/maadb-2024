@@ -7,7 +7,6 @@ import logging
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
-from bson import UuidRepresentation
 
 import event
 import telemetry
@@ -28,7 +27,7 @@ client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/',
 engine = AIOEngine(client=client, database='maadb_tickets')
 
 cluster = Cluster(port=9042)
-session = cluster.connect('tickets')
+session = cluster.connect('ticket_service')
 
 app = FastAPI()
 app.include_router(user_session.router)
