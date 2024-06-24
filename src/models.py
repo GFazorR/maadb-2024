@@ -3,9 +3,8 @@ This module contains the data models used in the application.
 """
 import datetime
 import uuid
-from typing import List, Any
+from typing import List
 
-import pydantic
 from odmantic import Model, EmbeddedModel, Field
 from pydantic import BaseModel, ConfigDict, Extra
 

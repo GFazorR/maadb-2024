@@ -14,10 +14,5 @@ def get_engine(request: Request):
     return engine
 
 
-def get_session(request: Request):
-    session = request.app.session
-    return session
-
-
 if __name__ == '__main__':
     pass

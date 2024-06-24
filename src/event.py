@@ -1,13 +1,10 @@
 """
 This module implements endpoints for crud operations over events.
 """
-import datetime
 import logging
 import uuid
 from typing import List
 
-from cassandra.cluster import ConsistencyLevel, Session
-from cassandra.query import SimpleStatement
 from fastapi import (
     APIRouter,
     Depends,
@@ -25,15 +22,15 @@ from redis_utils import (
     get_cached_published,
     set_cache_published,
     set_cached_user_events,
-    get_cached_user_events,
-    set_cache_tickets,
-    get_cache_tickets
+    get_cached_user_events
 )
-from utils import get_engine, get_session
+from ticket_service import EventService
+from utils import get_engine
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+event_service = EventService()
 
 
 @router.post('/event')
@@ -41,11 +38,9 @@ async def save_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
         engine=Depends(get_engine),
-        session=Depends(get_session),
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
-    :param session:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
@@ -54,13 +49,8 @@ async def save_event(
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
 
-    insert_ticket = SimpleStatement(
-        """INSERT INTO events (event_id, event_day, purchased_tickets)
-         VALUES (%s, %s, %s)""", consistency_level=ConsistencyLevel.QUORUM
-    )
     if event.published:
-        for cap in event.capacity_by_day:
-            session.execute(insert_ticket, (event.id, cap.day, 0))
+        event_service.create_event(event)
 
     return event
 
