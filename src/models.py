@@ -54,24 +54,6 @@ class EventModel(Model, extra=Extra.allow):
         'collection': 'events_collection'
     }
 
-    # def populate_capacity_by_day(self):
-    #     self.capacity_by_day = []
-    #     for x in range((self.end_datetime - self.start_datetime).days):
-    #         self.capacity_by_day.append(DayCapacityModel(
-    #             day=self.start_datetime + datetime.timedelta(days=x),
-    #             max_capacity=self.__pydantic_extra__.get('max_capacity', 100),
-    #             price=self.__pydantic_extra__.get('price', 10.0)
-    #         ))
-
-
-class Telemetry(BaseModel):
-    """
-    This class represents the telemetry model.
-    :param participants: int
-    """
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-    participants: int = Field(default_factory=int)
-
 
 class Ticket(BaseModel, extra='allow'):
     """
@@ -81,9 +63,9 @@ class Ticket(BaseModel, extra='allow'):
     """
     event_id: str
     user_id: str
-    ticket_price: float
-    discount: float
-    paid_price: float
+    ticket_price: float = 20
+    discount: float = 0.0
+    paid_price: float = 20
     event_day: datetime.datetime
     purchased_date: datetime.datetime
 
@@ -95,7 +77,6 @@ class UserSession(BaseModel):
     :param user_profile: UserModel
     :param event: EventModel
     :param ticket_sale: TicketModel
-    :param event_telemetry: TelemetryModel
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
     id: str
@@ -103,7 +84,10 @@ class UserSession(BaseModel):
     user_profile: UserModel
     event: EventModel
     ticket_sale: Ticket
-    event_telemetry: Telemetry
+
+
+class Tickets(BaseModel):
+    tickets: List[Ticket]
 
 
 if __name__ == '__main__':

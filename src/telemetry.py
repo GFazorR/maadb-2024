@@ -1,23 +1,22 @@
-from fastapi import APIRouter
+import uuid
+
+from fastapi import APIRouter, Response, status
+
+from ticket_service import TelemetryService
 
 router = APIRouter()
+telemetry_service = TelemetryService()
 
 
-# ----------------------- Telemetry --------------------------------
-# Persistence (Cassandra)
-@router.get('/event/telemetry')
-async def read_telemetry():
-    pass
+@router.get('/visits/event')
+async def get_visits(event_id: uuid.UUID):
+    return telemetry_service.get_counter(event_id)
 
 
-@router.get('/profile/attended_events')
-async def read_attended_events():
-    pass
-
-
-@router.get('/profile/discount')
-async def read_discount():
-    pass
+@router.put('/visits/event')
+async def update_visits(event_id: uuid.UUID):
+    telemetry_service.update_counter(event_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 if __name__ == '__main__':

@@ -1,22 +1,17 @@
+import datetime
 import logging
-from typing import List
+import uuid
 
 from fastapi import APIRouter, Response, status
 
 from models import Ticket, DayCapacityModel
+from models import Tickets
 from ticket_service import TicketService
-from pydantic import TypeAdapter, BaseModel
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ticket_service = TicketService()
-
-
-class Tickets(BaseModel):
-    tickets: List[Ticket]
-
-list_adapter = TypeAdapter(Tickets)
 
 
 @router.post("/ticket")
@@ -42,10 +37,17 @@ async def delete_ticket(
     return Response(status_code=status.HTTP_404_NOT_FOUND)
 
 
-@router.get('/ticket/buy')
-async def read_ticket(ticket_id: str):
-    pass
+@router.get('/ticket/{user_id}')
+async def get_user_tickets(user_id: uuid.UUID, ticket_status: str = None):
+    tickets = ticket_service.get_tickets_by_user(user_id, ticket_status)
+    return Response(status_code=status.HTTP_200_OK, content=tickets.json())
 
+
+@router.get('/discount/{user_id}')
+async def calculate_discount(user_id: uuid.UUID):
+    n_tickets = ticket_service.get_attended_events(user_id)
+    logger.info(n_tickets)
+    return n_tickets
 
 if __name__ == '__main__':
     pass
