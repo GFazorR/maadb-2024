@@ -108,3 +108,10 @@ services:
       interval: 2m
       timeout: 10s
       retries: 3
+
+  rabbitmq:
+    image: rabbitmq:latest
+    restart: on-failure
+    ports:
+      - "5672:5672"
+      - "15672:15672"

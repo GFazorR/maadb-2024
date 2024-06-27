@@ -43,7 +43,7 @@ class EventModel(Model, extra=Extra.allow):
     :param capacity_by_day: List[DayCapacityModel]
     :param start_datetime: datetime    :param end_datetime: datetime
     """
-    id: uuid.UUID = Field(primary_field=True, default=uuid.uuid4())
+    id: uuid.UUID = Field(primary_field=True)
     owner: List[uuid.UUID]
     name: str
     published: bool

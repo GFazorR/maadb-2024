@@ -1,13 +1,14 @@
 """
 This module is the main entry point for the application backend.
 """
-
+import asyncio
 import logging
 
+from asyncio import gather
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
-
+import pika
 import event
 import telemetry
 import tickets
@@ -23,9 +24,6 @@ logger = logging.getLogger(__name__)
 client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/',
                             uuidRepresentation='standard')
 engine = AIOEngine(client=client, database='maadb_tickets')
-
-
-
 
 app = FastAPI()
 app.include_router(user_session.router)
@@ -48,6 +46,10 @@ async def startup():
     """
     # query monogo
     # cache on redis
+    # conection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+    # channel = conection.channel()
+    # for i in range(4):
+    #     channel.queue_declare(queue=f'cassandra_{i}', durable=True, passive=True)
     pass
 
 

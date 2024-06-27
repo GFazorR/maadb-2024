@@ -21,7 +21,7 @@ async def register(username: str, engine=Depends(get_engine)):
     :return: UserModel
     """
     # TODO check user exists
-    user = UserModel(username=username, role='business')
+    user = UserModel(id=uuid.uuid4(), username=username, role='business')
     user = await engine.save(user)
     return user
 

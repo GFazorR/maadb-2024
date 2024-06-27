@@ -130,7 +130,7 @@ async def get_published_events(background_task: BackgroundTasks,
     :return: List[EventModel] | Response
     """
     events = await get_cached_published()
-    logger.info(f'events: {events}')
+    logger.debug(f'events: {events}')
     if events:
         return events
     try:
@@ -153,7 +153,7 @@ async def get_event(user_id: str,
     :return: List[EventModel] | Response
     """
     events = await get_cached_user_events(user_id)
-    logger.info(f'events: {events}')
+    logger.debug(f'events: {events}')
     if events:
         return events
     try:
