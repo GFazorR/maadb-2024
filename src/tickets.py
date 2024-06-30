@@ -1,23 +1,22 @@
 import logging
 import uuid
-from typing import List
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Response, status, Depends
 
 from src.models import Ticket, DayCapacityModel, Tickets
-from src.ticket_service import TicketService
+from src.utils import get_ticket_service
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-ticket_service = TicketService()
 
 
 @router.post("/ticket")
 async def buy_ticket(
         ticket: Ticket,
         capacity: DayCapacityModel,
-        n_tickets: int = 1
+        n_tickets: int = 1,
+        ticket_service=Depends(get_ticket_service)
 ):
     try:
         result = ticket_service.lock_tickets(
@@ -35,6 +34,7 @@ async def buy_ticket(
 @router.post("/ticket/confirm")
 async def confirm_ticket(
         tickets: Ticket,
+        ticket_service=Depends(get_ticket_service)
 ):
     result = ticket_service.book_tickets(tickets)
     if result:
@@ -47,6 +47,7 @@ async def confirm_ticket(
 @router.delete("/ticket/confirm")
 async def confirm_ticket(
         ticket: Ticket,
+        ticket_service=Depends(get_ticket_service)
 ):
     result = ticket_service.cancel_ticket(ticket)
     if result:
@@ -56,7 +57,8 @@ async def confirm_ticket(
 
 @router.delete('/ticket')
 async def delete_ticket(
-        ticket: Ticket
+        ticket: Ticket,
+        ticket_service=Depends(get_ticket_service)
 ):
     result = ticket_service.decrement_tickets(ticket)
     if result:
@@ -65,13 +67,23 @@ async def delete_ticket(
 
 
 @router.get('/ticket/{user_id}')
-async def get_user_tickets(user_id: uuid.UUID, ticket_status: str = None):
+async def get_user_tickets(
+        user_id: uuid.UUID,
+        ticket_status: str = None,
+        ticket_service=Depends(get_ticket_service)
+):
     tickets = ticket_service.get_tickets_by_user(user_id, ticket_status)
     return Response(status_code=status.HTTP_200_OK, content=tickets.json())
 
 
+# TODO Move to analytics
+# TODO cache
+# TODO implement discount calculation
 @router.get('/discount/{user_id}')
-async def calculate_discount(user_id: uuid.UUID):
+async def calculate_discount(
+        user_id: uuid.UUID,
+        ticket_service=Depends(get_ticket_service)
+):
     n_tickets = ticket_service.get_attended_events(user_id)
     return n_tickets
 

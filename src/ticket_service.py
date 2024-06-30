@@ -2,25 +2,23 @@ import datetime
 import logging
 import uuid
 
-from cassandra.cluster import Cluster, ConsistencyLevel
+from cassandra.cluster import ConsistencyLevel
 from cassandra.query import SimpleStatement, BatchStatement, BatchType
 
 from src import cql_templates
-from src.models import EventModel, Ticket, DayCapacityModel, Tickets
+from src.models import EventModel, Ticket, Tickets
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-cluster = Cluster(port=9042)
-session = cluster.connect('ticket_service')
-
 
 class EventService:
-    def __init__(self):
+    def __init__(self, session):
         self.session = session
         self.insert_event = SimpleStatement("""
         INSERT INTO inventory.events ("event_id", "event_day", "purchased_tickets")
         VALUES (%s, %s, 0)
+        IF NOT EXISTS
         """)
 
     def create_event(self, event: EventModel):
@@ -33,8 +31,8 @@ class EventService:
                 ))
 
 
-class TelemetryService:
-    def __init__(self):
+class AnalyticsService:
+    def __init__(self, session):
         self.session = session
         self.query_update_counter = SimpleStatement("""
         UPDATE inventory.user_visits
@@ -63,7 +61,7 @@ class TelemetryService:
 
 
 class TicketService:
-    def __init__(self):
+    def __init__(self, session):
         self.session = session
 
     def lock_tickets(

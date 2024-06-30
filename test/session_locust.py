@@ -35,3 +35,7 @@ class LoadTestUserSession(HttpUser):
             name="/session/events/{user_id}"
         )
         assert response.status_code == 200, f"Expected 200 but got {response.status_code}"
+
+
+if __name__ == '__main__':
+    pass

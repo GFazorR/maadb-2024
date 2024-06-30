@@ -25,12 +25,11 @@ from src.redis_utils import (
     get_cached_user_events
 )
 from src.ticket_service import EventService
-from src.utils import get_engine
+from src.utils import get_engine, get_event_service
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-event_service = EventService()
 
 
 @router.post('/event')
@@ -38,9 +37,11 @@ async def save_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
         engine=Depends(get_engine),
+        event_service=Depends(get_event_service)
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
+    :param event_service:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
@@ -60,9 +61,11 @@ async def update_event(
         background_tasks: BackgroundTasks,
         event: EventModel,
         engine=Depends(get_engine),
+        event_service=Depends(get_event_service)
 ):
     """
     Performs an upsert for an EventModel on MongoDB with redis caching.
+    :param event_service:
     :param background_tasks: BackgroundTasks object
     :param event: EventModel
     :param engine: Depends on engine
@@ -70,6 +73,10 @@ async def update_event(
     """
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
+
+    if event.published:
+        event_service.create_event(event)
+
     return event
 
 
@@ -78,7 +85,8 @@ async def update_event(
 async def delete_event(
         background_task: BackgroundTasks,
         event: EventModel,
-        engine=Depends(get_engine)):
+        engine=Depends(get_engine),
+):
     """
     Deletes an EventModel from Redis cache and MongoDB databases.
     :param background_task: BackgroundTasks object

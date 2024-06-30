@@ -110,3 +110,7 @@ class EventLoadTest(HttpUser):
         response = self.client.delete(f"/event", data=event.json())
         assert response.status_code == 204 or response.status_code == 404
         self.event_id_list.remove(event)
+
+
+if __name__ == '__main__':
+    pass

@@ -2,7 +2,6 @@ import json
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
 
 import httpx
 from faker import Faker
@@ -10,7 +9,7 @@ from locust import HttpUser, task, between, events
 from pydantic import BaseModel, Extra
 from pydantic.tools import parse_obj_as
 
-from src.models import EventModel, Ticket, DayCapacityModel, Tickets
+from src.models import EventModel, Ticket, Tickets
 from test.event_locust import generate_sample_event_data
 
 fake = Faker()
@@ -151,10 +150,13 @@ class TicketLoadTest(HttpUser):
         )
         assert (response is not None and response.status_code == 200)
 
-
     @task
     def get_discount(self):
         response = self.client.get(
             f"/discount/{self.id}",
         )
         assert (response is not None and response.status_code == 200)
+
+
+if __name__ == '__main__':
+    pass

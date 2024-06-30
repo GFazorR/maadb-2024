@@ -3,12 +3,14 @@ This module is the main entry point for the application backend.
 """
 import logging
 
+from cassandra.cluster import Cluster
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
 
-from src import event, telemetry, tickets, user, user_session
-
+from src import event, analytics, tickets, user, user_session
+from src.cql_templates import initialize_cassandra
+from src.ticket_service import EventService, AnalyticsService, TicketService
 
 """
 Initialize logging, mongodb and FastApi routing.
@@ -20,12 +22,14 @@ client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/',
                             uuidRepresentation='standard')
 engine = AIOEngine(client=client, database='maadb_tickets')
 
+
+
 app = FastAPI()
 app.include_router(user_session.router)
 app.include_router(user.router)
 app.include_router(event.router)
 app.include_router(tickets.router)
-app.include_router(telemetry.router)
+app.include_router(analytics.router)
 
 app.engine = engine
 
@@ -39,24 +43,14 @@ async def startup():
     Queries mongodb and caches the result in redis.
     :return: None
     """
-    # query monogo
-    # cache on redis
-    # conection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
-    # channel = conection.channel()
-    # for i in range(4):
-    #     channel.queue_declare(queue=f'cassandra_{i}', durable=True, passive=True)
-    pass
+    cluster = Cluster(port=9042)
+    session = cluster.connect()
+    initialize_cassandra(session)
+    app.event_service = EventService(session)
+    app.analytics_service = AnalyticsService(session)
+    app.ticket_service = TicketService(session)
 
 
-@app.on_event('shutdown')
-async def shutdown():
-    """
-    This function is called when the app shutdown.
-    Persists redis dataa in mongodb database.
-    :return: None
-    """
-    # persist on mongo
-    pass
 
 
 @app.get("/")

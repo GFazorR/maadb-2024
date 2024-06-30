@@ -5,16 +5,19 @@ networks:
   cassandra-net:
     driver: bridge
 
+
+
 services:
 
-  mongo:
-    image: mongo
+  mongodb:
+    image: mongo:latest
     restart: on-failure
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
+
 
   redis:
     image: redis/redis-stack:latest
@@ -31,7 +34,7 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: example
-      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongodb:27017/
       ME_CONFIG_BASICAUTH: false
 
   cassandra-1:
