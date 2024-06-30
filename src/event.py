@@ -14,8 +14,8 @@ from fastapi import (
 )
 from odmantic.exceptions import DocumentNotFoundError
 
-from models import EventModel
-from redis_utils import (
+from src.models import EventModel
+from src.redis_utils import (
     get_cache,
     set_cache,
     delete_cache,
@@ -24,8 +24,8 @@ from redis_utils import (
     set_cached_user_events,
     get_cached_user_events
 )
-from ticket_service import EventService
-from utils import get_engine
+from src.ticket_service import EventService
+from src.utils import get_engine
 
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
@@ -86,21 +86,20 @@ async def delete_event(
     :param engine: Depends on engine
     :return: Response
     """
+    logger.info((event.id, type(event.id)))
     try:
         background_task.add_task(delete_cache, event)
-        del_id = await engine.delete(event)
-        if not del_id:
-            return Response(status_code=status.HTTP_404_NOT_FOUND)
+        await engine.delete(event)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
 
 # TODO: refactor
-@router.get('/event')
-async def get_saved_events(background_task: BackgroundTasks,
-                           event_id: str,
-                           engine=Depends(get_engine)):
+@router.get('/event/event_id/{event_id}')
+async def get_event_by_event_id(background_task: BackgroundTasks,
+                                event_id: str,
+                                engine=Depends(get_engine)):
     """
     Gets an EventModel by event_id from redis cache or MongoDB databases.
     :param background_task: BackgroundTasks object
@@ -142,9 +141,9 @@ async def get_published_events(background_task: BackgroundTasks,
 
 
 @router.get('/event/{user_id}', response_model=List[EventModel])
-async def get_event(user_id: str,
-                    background_task: BackgroundTasks,
-                    engine=Depends(get_engine)):
+async def get_event_by_user_id(user_id: str,
+                               background_task: BackgroundTasks,
+                               engine=Depends(get_engine)):
     """
     Returns all events owned by a user, from redis cache or from MongoDB databases.
     :param user_id: str

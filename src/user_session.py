@@ -5,8 +5,8 @@ from http.client import HTTPException
 
 from fastapi import APIRouter, status, HTTPException, Response
 
-import redis_utils
-from models import EventModel
+from src import redis_utils
+from src.models import EventModel
 
 router = APIRouter()
 

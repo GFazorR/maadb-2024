@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Response, status
 
-from ticket_service import TelemetryService
+from src.ticket_service import TelemetryService
 
 router = APIRouter()
 telemetry_service = TelemetryService()

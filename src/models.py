@@ -29,7 +29,7 @@ class DayCapacityModel(EmbeddedModel):
     :param day: datetime
     :param max_capacity: int
     """
-    day: datetime.datetime
+    day: str
     max_capacity: int = 100
     price: float = 10.0
 
@@ -47,8 +47,8 @@ class EventModel(Model, extra=Extra.allow):
     owner: List[uuid.UUID]
     name: str
     published: bool
-    start_datetime: datetime.datetime
-    end_datetime: datetime.datetime
+    start_datetime: str
+    end_datetime: str
     capacity_by_day: List[DayCapacityModel] = []
     model_config = {
         'collection': 'events_collection'
@@ -66,7 +66,7 @@ class Ticket(BaseModel, extra='allow'):
     ticket_price: float = 20
     discount: float = 0.0
     paid_price: float = 20
-    event_day: datetime.datetime
+    event_day: str
     purchased_date: datetime.datetime
 
 

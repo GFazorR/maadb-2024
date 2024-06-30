@@ -1,19 +1,14 @@
 """
 This module is the main entry point for the application backend.
 """
-import asyncio
 import logging
 
-from asyncio import gather
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
-import pika
-import event
-import telemetry
-import tickets
-import user
-import user_session
+
+from src import event, telemetry, tickets, user, user_session
+
 
 """
 Initialize logging, mongodb and FastApi routing.

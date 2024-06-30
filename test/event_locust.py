@@ -2,9 +2,24 @@ import random
 import string
 import uuid
 from datetime import datetime, timedelta
-from locust import HttpUser, task, between
+from locust import HttpUser, task, between, events
+import httpx
 
 from src.models import EventModel
+
+created_events = []
+
+
+@events.test_start.add_listener
+def on_test_start(environment):
+    for _ in range(10):
+        event = EventModel(id=uuid.uuid4(), **generate_sample_event_data())
+        result = httpx.post('http://localhost:8000/event',
+                            json=event.model_dump(mode='json'),
+                            headers={"Content-Type": "application/json"})
+        if result.status_code == 200:
+            created_events.append(event)
+    print(created_events)
 
 
 def generate_random_name(length=10):
@@ -27,18 +42,18 @@ def generate_sample_event_data(num_days=2):
     """Generate sample event data with randomized values."""
     owners = [generate_random_owner(), generate_random_owner()]
     name = generate_random_name()
-    start_datetime = datetime.now()
+    start_datetime = datetime.now().date()
     end_datetime = start_datetime + timedelta(days=num_days)
 
-    capacity_by_day = [{"day": start_datetime + timedelta(days=i), "max_capacity": generate_random_capacity()} for i in
-                       range(num_days)]
+    capacity_by_day = [{"day": (start_datetime + timedelta(days=i)).strftime("%Y-%m-%d"),
+                        "max_capacity": generate_random_capacity()} for i in range(num_days)]
 
     return {
         "owner": owners,
         "name": name,
         "published": random.choice([True, False]),
-        "start_datetime": start_datetime,
-        "end_datetime": end_datetime,
+        "start_datetime": start_datetime.strftime("%Y-%m-%d"),
+        "end_datetime": end_datetime.strftime("%Y-%m-%d"),
         "capacity_by_day": capacity_by_day
     }
 
@@ -49,11 +64,12 @@ def generate_sample_event_data(num_days=2):
 class EventLoadTest(HttpUser):
     host = 'http://localhost:8000'  # Add this line
     wait_time = between(1, 2.5)  # Wait time between tasks
-    event_id_list = [EventModel(id=str(uuid.uuid4()), **generate_sample_event_data())]
+
     user_ids = [uuid.uuid4() for _ in range(20)]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.event_id_list = created_events
 
     @task
     def create_event(self):
@@ -93,3 +109,4 @@ class EventLoadTest(HttpUser):
         event = random.choice(self.event_id_list)
         response = self.client.delete(f"/event", data=event.json())
         assert response.status_code == 204 or response.status_code == 404
+        self.event_id_list.remove(event)

@@ -48,6 +48,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
       CASSANDRA_DC: my-datacenter-1
     networks:
       - cassandra-net
@@ -70,6 +72,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
       CASSANDRA_DC: my-datacenter-1
       CASSANDRA_SEEDS: cassandra-1
     networks:
@@ -96,6 +100,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
       CASSANDRA_DC: my-datacenter-1
 
     networks:
@@ -109,9 +115,3 @@ services:
       timeout: 10s
       retries: 3
 
-  rabbitmq:
-    image: rabbitmq:latest
-    restart: on-failure
-    ports:
-      - "5672:5672"
-      - "15672:15672"

@@ -5,8 +5,8 @@ import uuid
 from cassandra.cluster import Cluster, ConsistencyLevel
 from cassandra.query import SimpleStatement, BatchStatement, BatchType
 
-import cql_templates
-from models import EventModel, Ticket, DayCapacityModel, Tickets
+from src import cql_templates
+from src.models import EventModel, Ticket, DayCapacityModel, Tickets
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,9 +19,8 @@ class EventService:
     def __init__(self):
         self.session = session
         self.insert_event = SimpleStatement("""
-        UPDATE ticket_service.events
-        SET purchased_tickets = purchased_tickets + 0
-        WHERE event_id = %s AND event_day = %s
+        INSERT INTO inventory.events ("event_id", "event_day", "purchased_tickets")
+        VALUES (%s, %s, 0)
         """)
 
     def create_event(self, event: EventModel):
@@ -30,7 +29,7 @@ class EventService:
                 self.insert_event,
                 (
                     event.id,
-                    cap.day
+                    datetime.datetime.strptime(cap.day, "%Y-%m-%d").date(),
                 ))
 
 
@@ -38,14 +37,14 @@ class TelemetryService:
     def __init__(self):
         self.session = session
         self.query_update_counter = SimpleStatement("""
-        UPDATE ticket_service.user_visits
+        UPDATE inventory.user_visits
         SET page_visits = page_visits + 1
         WHERE event_id = %s
         """)
 
         self.query_counter = SimpleStatement("""
         SELECT page_visits
-        FROM ticket_service.user_visits
+        FROM inventory.user_visits
         WHERE event_id = %s
         """)
 
@@ -67,72 +66,136 @@ class TicketService:
     def __init__(self):
         self.session = session
 
-    def book_ticket(self,
-                    ticket: Ticket,
-                    capacity: DayCapacityModel,
-                    n_tickets=1):
-
+    def lock_tickets(
+            self,
+            ticket: Ticket,
+            max_capacity: int,
+            n_tickets=1
+    ):
         initial_purchased = self.session.execute(
             cql_templates.n_tickets,
             (
                 uuid.UUID(ticket.event_id),
-                capacity.event_day,
+                datetime.datetime.strptime(ticket.event_day,
+                                           '%Y-%m-%d').date(),
             )
         )
         initial_purchased = initial_purchased.one().purchased_tickets
 
-        if initial_purchased + n_tickets <= capacity.max_capacity:
-            created_tickets = []
-            try:
-                for i in range(n_tickets):
-                    ticket = self._create_ticket(ticket)
-                    logger.info(f'Created ticket {ticket}')
-                    created_tickets.append(ticket)
+        if not (initial_purchased + n_tickets < max_capacity):
+            raise ValueError("Capacity exceeds max capacity")
 
-                result = self.session.execute(
-                    cql_templates.increment_counter,
-                    parameters=(
-                        initial_purchased + n_tickets,
-                        uuid.UUID(ticket.event_id),
-                        ticket.event_day,
-                        initial_purchased,
-                    )
+        result = self.session.execute(
+            cql_templates.increment_counter,
+            parameters=(
+                initial_purchased + n_tickets,
+                uuid.UUID(ticket.event_id),
+                datetime.datetime.strptime(ticket.event_day,
+                                           '%Y-%m-%d').date(),
+                initial_purchased,
+            )
+        )
+        if result.was_applied:
+            return True
+        return False
+
+    def book_tickets(
+            self,
+            ticket: Ticket,
+            n_tickets=1
+    ):
+        created_tickets = []
+        batch = BatchStatement(batch_type=BatchType.LOGGED,
+                               consistency_level=ConsistencyLevel.LOCAL_QUORUM)
+        for i in range(n_tickets):
+            ticket.id = uuid.uuid4()
+            batch.add(
+                cql_templates.insert_ticket,
+                parameters=(
+                    uuid.UUID(ticket.event_id),
+                    datetime.datetime.strptime(ticket.event_day, "%Y-%m-%d").date(),
+                    ticket.purchased_date,
+                    uuid.UUID(ticket.user_id),
+                    ticket.id,
+                    ticket.ticket_price,
+                    ticket.discount,
+                    ticket.paid_price,
+                    'purchased'
                 )
+            )
+            batch.add(
+                cql_templates.insert_by_user,
+                parameters=(
+                    uuid.UUID(ticket.user_id),
+                    ticket.purchased_date,
+                    datetime.datetime.strptime(ticket.event_day, "%Y-%m-%d").date(),
+                    uuid.UUID(ticket.event_id),
+                    ticket.id,
+                    ticket.paid_price,
+                    'purchased'
+                )
+            )
+            batch.add(
+                cql_templates.insert_by_user_and_date,
+                parameters=(
+                    uuid.UUID(ticket.user_id),
+                    datetime.datetime.strptime(ticket.event_day, "%Y-%m-%d").date(),
+                    uuid.UUID(ticket.event_id),
+                    ticket.id,
+                    ticket.purchased_date,
+                    ticket.paid_price,
+                    'purchased'
+                )
+            )
+            created_tickets.append(ticket)
+        self.session.execute(batch)
 
-                if result.was_applied:
-                    return created_tickets
+        return created_tickets
 
-            except Exception as e:
-                logger.error(e)
+    def decrement_tickets(
+            self,
+            ticket: Ticket,
+    ):
+        initial_purchased = self.session.execute(
+            cql_templates.n_tickets,
+            (
+                uuid.UUID(ticket.event_id),
+                datetime.datetime.strptime(ticket.event_day,
+                                           '%Y-%m-%d').date(),
+            )
+        )
+        initial_purchased = initial_purchased.one().purchased_tickets
 
-            for ticket in created_tickets:
-                self._delete_ticket(ticket)
-            return False
+        result = self.session.execute(
+            cql_templates.increment_counter,
+            parameters=(
+                initial_purchased - 1,
+                uuid.UUID(ticket.event_id),
+                datetime.datetime.strptime(ticket.event_day,
+                                           '%Y-%m-%d').date(),
+                initial_purchased,
+            )
+        )
 
-    def _delete_ticket(self, ticket):
-        # TODO
-        pass
+        if result.was_applied:
+            return True
+        return False
 
     def cancel_ticket(self, ticket: Ticket):
-        initial_purchased = self.session.execute(
-            cql_templates.n_tickets,
-            (
-                uuid.UUID(ticket.event_id),
-                ticket.event_day,
-            )
-        )
-        initial_purchased = initial_purchased.one().purchased_tickets
+
+        ticket.id = uuid.UUID(ticket.id)
 
         batch = BatchStatement(batch_type=BatchType.LOGGED,
                                consistency_level=ConsistencyLevel.ONE)
+
         batch.add(
             cql_templates.update_ticket,
             parameters=(
                 'canceled',
                 uuid.UUID(ticket.event_id),
-                ticket.event_day,
+                datetime.datetime.strptime(ticket.event_day, "%Y-%m-%d").date(),
                 uuid.UUID(ticket.user_id),
-                uuid.UUID(ticket.id),
+                ticket.id,
             )
         )
         batch.add(
@@ -140,7 +203,7 @@ class TicketService:
             parameters=(
                 'canceled',
                 uuid.UUID(ticket.user_id),
-                uuid.UUID(ticket.id),
+                ticket.id,
             )
         )
         batch.add(
@@ -148,72 +211,12 @@ class TicketService:
             parameters=(
                 'canceled',
                 uuid.UUID(ticket.user_id),
-                ticket.event_day,
-                uuid.UUID(ticket.id),
-            )
-        )
-        try:
-            self.session.execute(batch)
-            result = self.session.execute(
-                cql_templates.increment_counter,
-                parameters=(
-                    initial_purchased - 1,
-                    uuid.UUID(ticket.event_id),
-                    ticket.event_day,
-                    initial_purchased
-                ),
-            )
-            if result.was_applied:
-                return True
-        except Exception as e:
-            logger.error(e)
-        return False
-
-    def _create_ticket(self, ticket):
-        ticket.id = uuid.uuid4()
-        batch = BatchStatement(batch_type=BatchType.LOGGED,
-                               consistency_level=ConsistencyLevel.ONE)
-        batch.add(
-            cql_templates.insert_ticket,
-            parameters=(
-                uuid.UUID(ticket.event_id),
-                ticket.event_day,
-                ticket.purchased_date,
-                uuid.UUID(ticket.user_id),
+                datetime.datetime.strptime(ticket.event_day, "%Y-%m-%d").date(),
                 ticket.id,
-                ticket.ticket_price,
-                ticket.discount,
-                ticket.paid_price,
-                'purchased'
             )
         )
-        batch.add(
-            cql_templates.insert_by_user,
-            parameters=(
-                uuid.UUID(ticket.user_id),
-                ticket.purchased_date,
-                ticket.event_day,
-                uuid.UUID(ticket.event_id),
-                ticket.id,
-                ticket.paid_price,
-                'purchased'
-            )
-        )
-        batch.add(
-            cql_templates.insert_by_user_and_date,
-            parameters=(
-                uuid.UUID(ticket.user_id),
-                ticket.event_day,
-                uuid.UUID(ticket.event_id),
-                ticket.id,
-                ticket.purchased_date,
-                ticket.paid_price,
-                'purchased'
-            )
-        )
-        result = self.session.execute(batch)
-        logger.info(list(result))
-        return ticket
+        self.session.execute(batch)
+        return True
 
     def get_tickets_by_user(self, user_id, status=None):
         if status is not None:
@@ -235,13 +238,12 @@ class TicketService:
                 id=str(row.ticket_id),
                 user_id=str(row.user_id),
                 event_id=str(row.event_id),
-                event_day=row.event_day,
+                event_day=row.event_day.date().strftime("%Y-%m-%d"),
                 purchased_date=row.purchase_date,
                 paid_price=float(row.paid_price),
                 status=row.status,
             )
             tickets.append(ticket)
-            logger.info(f"ticket: {ticket}")
 
         return Tickets(tickets=tickets)
 
@@ -250,11 +252,10 @@ class TicketService:
             cql_templates.attended_events,
             (
                 user_id,
-                datetime.datetime.now(),
+                datetime.datetime.now().date(),
                 'purchased',
             ))
         n_rows = set(result)
-        logger.info(n_rows)
         return len(n_rows)
 
 

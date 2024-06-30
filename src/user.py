@@ -5,9 +5,9 @@ import uuid
 
 from fastapi import APIRouter, Depends, Response, status
 
-from models import UserModel
-from redis_utils import create_session
-from utils import get_engine
+from src.models import UserModel
+from src.redis_utils import create_session
+from src.utils import get_engine
 
 router = APIRouter()
 

@@ -8,7 +8,7 @@ from typing import List
 
 from redis import asyncio as aioredis
 
-from models import EventModel, UserModel, DayCapacityModel
+from src.models import EventModel, UserModel, DayCapacityModel
 
 redis_client = aioredis.from_url('redis://localhost:6379', decode_responses=True)
 
