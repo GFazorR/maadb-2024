@@ -59,7 +59,7 @@ class Ticket(BaseModel, extra='allow'):
     """
     This class represents the ticket model.
     :param user_id: str    :param id: str
-    :param price: float    :param discount: float
+    :param discount: float
     """
     event_id: str
     user_id: str

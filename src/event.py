@@ -148,7 +148,8 @@ async def get_published_events(background_task: BackgroundTasks,
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
-
+# TODO move in users
+# TODO remove in-endpoint params
 @router.get('/event/{user_id}', response_model=List[EventModel])
 async def get_event_by_user_id(user_id: str,
                                background_task: BackgroundTasks,
