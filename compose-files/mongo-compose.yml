@@ -1,0 +1,119 @@
+# Use root/example as user/password credentials
+version: '3.1'
+
+networks:
+  cassandra-net:
+    driver: bridge
+
+
+
+services:
+
+  mongodb:
+    image: mongo:latest
+    restart: on-failure
+    ports:
+      - "27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+  redis:
+    image: redis/redis-stack:latest
+    restart: always
+    ports:
+      - "6379:6379"  # Map container port 6379 to host port 6379
+      - "8001:8001"
+
+  mongo-express:
+    image: mongo-express
+    restart: on-failure
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: example
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+
+  cassandra-1:
+    image: cassandra:latest
+    restart: on-failure
+    ports:
+      - "9042:9042"
+      - "9160:9160"
+    environment:
+      CASSANDRA_USER: admin
+      CASSANDRA_PASSWORD: admin
+      CASSANDRA_START_RPC: true       # default
+      CASSANDRA_RPC_ADDRESS: 0.0.0.0  # default
+      CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
+      CASSANDRA_CLUSTER_NAME: my-cluster
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
+      CASSANDRA_DC: my-datacenter-1
+    networks:
+      - cassandra-net
+    healthcheck:
+      test: [ "CMD-SHELL", "nodetool status" ]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+
+  cassandra-2:
+    image: cassandra:latest
+    restart: on-failure
+    ports:
+      - "9043:9042"
+    environment:
+      CASSANDRA_USER: admin
+      CASSANDRA_PASSWORD: admin
+      CASSANDRA_START_RPC: true       # default
+      CASSANDRA_RPC_ADDRESS: 0.0.0.0  # default
+      CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
+      CASSANDRA_CLUSTER_NAME: my-cluster
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
+      CASSANDRA_DC: my-datacenter-1
+      CASSANDRA_SEEDS: cassandra-1
+    networks:
+      - cassandra-net
+    depends_on:
+      cassandra-1:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "nodetool status" ]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+
+  cassandra-3:
+    image: cassandra:latest
+    restart: on-failure
+    ports:
+      - "9044:9042"
+    environment:
+      CASSANDRA_USER: admin
+      CASSANDRA_PASSWORD: admin
+      CASSANDRA_START_RPC: true       # default
+      CASSANDRA_RPC_ADDRESS: 0.0.0.0  # default
+      CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
+      CASSANDRA_CLUSTER_NAME: my-cluster
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 256M
+      CASSANDRA_DC: my-datacenter-1
+
+    networks:
+      - cassandra-net
+    depends_on:
+      cassandra-2:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "nodetool status" ]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+
