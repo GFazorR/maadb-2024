@@ -22,5 +22,15 @@ async def update_visits(event_id: uuid.UUID,
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.get('/statistics/event')
+async def get_statistics(
+        event_id: uuid.UUID,
+        analytics_service=Depends(get_analytics_service)
+):
+    result = analytics_service.get_event_counter(event_id)
+    if result:
+        return result
+    return Response(status_code=status.HTTP_404_NOT_FOUND)
+
 if __name__ == '__main__':
     pass

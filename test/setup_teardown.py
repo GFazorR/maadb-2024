@@ -14,8 +14,8 @@ from test.utils import generate_sample_event_data
 fake = Faker()
 local_random = random.Random(1234)
 
-n_events = 10
-n_users = 10
+n_events = 100
+n_users = 100
 
 id_list_business = []
 id_list_client = []
@@ -24,7 +24,7 @@ tickets = []
 
 
 @events.test_start.add_listener
-def on_test_start(environment):
+def populate_business_users(environment):
     for _ in range(n_users):
         response = httpx.post("http://localhost:8000/register/business",
                               params={'username': fake.user_name()})
@@ -34,6 +34,10 @@ def on_test_start(environment):
             id_list_business.append(str(user.id))
             # print(user)
 
+
+@events.test_start.add_listener
+def populate_client_users(environment):
+    for _ in range(n_users):
         response = httpx.post("http://localhost:8000/register/client",
                               params={'username': fake.user_name()})
         if response.status_code == 200:
@@ -42,6 +46,9 @@ def on_test_start(environment):
             id_list_client.append(str(user.id))
             # print(user)
 
+
+@events.test_start.add_listener
+def populate_events(environment):
     for _ in range(n_events):
         event = EventModel(id=str(uuid.uuid4()),
                            **generate_sample_event_data(local_random.choices(

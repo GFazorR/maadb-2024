@@ -15,15 +15,20 @@ class AnalyticsUser(HttpUser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @task
+    @task(3)
     def get_visits(self):
         event = local_random.choice(created_events)
         self.client.get(f"/visits/event", params={'event_id': event.id})
 
-    @task
+    @task(3)
     def update_visits(self):
         event = local_random.choice(created_events)
         self.client.put(f"/visits/event", params={"event_id": event.id})
+
+    @task(1)
+    def get_event_attendance(self):
+        event = local_random.choice(created_events)
+        self.client.get(f"/statistics/event", params={'event_id': event.id})
 
 
 if __name__ == "__main__":

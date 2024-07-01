@@ -51,7 +51,6 @@ async def register_client(username: str, engine=Depends(get_engine)):
     :param engine: Depends on get_engine
     :return: UserModel
     """
-    # TODO check if user already exists
     user = UserModel(id=uuid.uuid4(), username=username, role='client')
     user = await engine.save(user)
     return user
@@ -98,7 +97,6 @@ async def calculate_discount(
         background_task.add_task(set_cached_discount,
                                  user_id, discount)
     return discount
-
 
 
 if __name__ == '__main__':

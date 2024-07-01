@@ -6,7 +6,7 @@ from cassandra.cluster import ConsistencyLevel
 from cassandra.query import SimpleStatement, BatchStatement, BatchType
 
 from src import cql_templates
-from src.models import EventModel, Ticket, Tickets
+from src.models import EventModel, Ticket, Tickets, EventDayStats, EventStats
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,6 +59,22 @@ class AnalyticsService:
         )
         logger.info(event_id)
         return result.one().page_visits
+
+    def get_event_counter(self, user_id):
+        result = self.session.execute(
+            cql_templates.n_tickets_by_event_id,
+            parameters=(user_id,)
+        )
+        event_stats = []
+        for row in result.all():
+            event_stats.append(
+                EventDayStats(
+                    event_id=row.event_id,
+                    event_day=row.event_day.date().strftime("%Y-%m-%d"),
+                    purchased_tickets=row.purchased_tickets,
+                )
+            )
+        return EventStats(days=event_stats)
 
 
 class TicketService:

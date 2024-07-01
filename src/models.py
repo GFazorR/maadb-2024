@@ -86,6 +86,16 @@ class UserSession(BaseModel):
     ticket_sale: Ticket
 
 
+class EventDayStats(BaseModel):
+    event_id: uuid.UUID
+    event_day: str
+    purchased_tickets: int
+
+
+class EventStats(BaseModel):
+    days: List[EventDayStats]
+
+
 class Tickets(BaseModel):
     tickets: List[Ticket]
 

@@ -22,8 +22,6 @@ client = AsyncIOMotorClient('mongodb://root:example@localhost:27017/',
                             uuidRepresentation='standard')
 engine = AIOEngine(client=client, database='maadb_tickets')
 
-
-
 app = FastAPI()
 app.include_router(user_session.router)
 app.include_router(user.router)
@@ -49,8 +47,6 @@ async def startup():
     app.event_service = EventService(session)
     app.analytics_service = AnalyticsService(session)
     app.ticket_service = TicketService(session)
-
-
 
 
 @app.get("/")

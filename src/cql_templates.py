@@ -117,6 +117,12 @@ FROM inventory.events
 WHERE event_id = %s AND event_day = %s
 """, consistency_level=ConsistencyLevel.LOCAL_QUORUM)
 
+n_tickets_by_event_id = SimpleStatement("""
+SELECT *
+FROM inventory.events
+WHERE event_id = %s
+""")
+
 purch_tickets = SimpleStatement("""
 SELECT purchased_tickets
 FROM inventory.events
