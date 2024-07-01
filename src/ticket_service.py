@@ -22,24 +22,24 @@ class EventService:
         """)
 
     def create_event(self, event: EventModel):
+        batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
         for cap in event.capacity_by_day:
-            self.session.execute(
+            batch.add(
                 self.insert_event,
                 (
                     event.id,
                     datetime.datetime.strptime(cap.day, "%Y-%m-%d").date(),
                 ))
+        self.session.execute(batch)
+        self.session.execute(
+            cql_templates.increment_visits,
+            parameters=(0, event.id),
+        )
 
 
 class AnalyticsService:
     def __init__(self, session):
         self.session = session
-        self.query_update_counter = SimpleStatement("""
-        UPDATE inventory.user_visits
-        SET page_visits = page_visits + 1
-        WHERE event_id = %s
-        """)
-
         self.query_counter = SimpleStatement("""
         SELECT page_visits
         FROM inventory.user_visits
@@ -48,8 +48,8 @@ class AnalyticsService:
 
     def update_counter(self, event_id):
         self.session.execute(
-            self.query_update_counter,
-            (event_id,)
+            cql_templates.increment_visits,
+            (1, event_id)
         )
 
     def get_counter(self, event_id):
@@ -57,6 +57,7 @@ class AnalyticsService:
             self.query_counter,
             (event_id,)
         )
+        logger.info(event_id)
         return result.one().page_visits
 
 
@@ -78,6 +79,7 @@ class TicketService:
                                            '%Y-%m-%d').date(),
             )
         )
+        logger.info(f"LOG_TICKET_SERVICE: {ticket.event_id, datetime.datetime.strptime(ticket.event_day, '%Y-%m-%d').date()}")
         initial_purchased = initial_purchased.one().purchased_tickets
 
         if not (initial_purchased + n_tickets < max_capacity):

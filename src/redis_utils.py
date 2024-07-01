@@ -138,6 +138,15 @@ async def set_cached_user_events(user_id: str, events: List[EventModel]):
         await pipe.execute()
 
 
+async def set_cached_discount(user_id, discount):
+    await redis_client.set(f'{user_id}_discount', discount)
+    await redis_client.expire(f'{user_id}_discount', 120)
+
+
+async def get_cached_discount(user_id):
+    return await redis_client.get(f'{user_id}_discount')
+
+
 async def get_cached_user_events(user_id: str):
     """
     Retrieves the list of EventModels that are owned by a specific user from redis.

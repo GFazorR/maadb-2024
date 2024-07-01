@@ -49,6 +49,7 @@ async def save_event(
     """
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
+    logger.info(event.id)
 
     if event.published:
         event_service.create_event(event)
@@ -73,7 +74,7 @@ async def update_event(
     """
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
-
+    logger.info(event.id)
     if event.published:
         event_service.create_event(event)
 

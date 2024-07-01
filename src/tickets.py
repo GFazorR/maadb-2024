@@ -66,26 +66,10 @@ async def delete_ticket(
     return Response(status_code=status.HTTP_404_NOT_FOUND)
 
 
-@router.get('/ticket/{user_id}')
-async def get_user_tickets(
-        user_id: uuid.UUID,
-        ticket_status: str = None,
-        ticket_service=Depends(get_ticket_service)
-):
-    tickets = ticket_service.get_tickets_by_user(user_id, ticket_status)
-    return Response(status_code=status.HTTP_200_OK, content=tickets.json())
 
 
-# TODO Move to analytics
-# TODO cache
-# TODO implement discount calculation
-@router.get('/discount/{user_id}')
-async def calculate_discount(
-        user_id: uuid.UUID,
-        ticket_service=Depends(get_ticket_service)
-):
-    n_tickets = ticket_service.get_attended_events(user_id)
-    return n_tickets
+
+
 
 
 if __name__ == '__main__':

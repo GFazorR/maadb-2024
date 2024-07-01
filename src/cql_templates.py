@@ -23,7 +23,7 @@ def initialize_cassandra(session):
         discount float,
         paid_price float,
         status text,
-        PRIMARY KEY ( (event_id, event_day), user_id, ticket_id),
+        PRIMARY KEY ( event_id, event_day, user_id, ticket_id),
     )"""))
     session.execute(SimpleStatement("""
         CREATE TABLE IF NOT EXISTS ticket_service.tickets_by_user(
@@ -59,7 +59,7 @@ def initialize_cassandra(session):
         event_id uuid,
         event_day date,
         purchased_tickets int,
-        PRIMARY KEY ( (event_id, event_day) )
+        PRIMARY KEY ( event_id, event_day )
     )"""))
     session.execute(SimpleStatement("""
         CREATE TABLE IF NOT EXISTS inventory.user_visits(
@@ -67,7 +67,6 @@ def initialize_cassandra(session):
         page_visits counter,
         PRIMARY KEY ( event_id )
     )"""))
-
 
 
 insert_ticket = SimpleStatement("""
@@ -160,6 +159,12 @@ DELETE
 FROM ticket_service.tickets_by_user_and_date
 WHERE user_id = %s AND event_day = %s AND ticket_id = %s
 """)
+
+increment_visits = SimpleStatement("""
+        UPDATE inventory.user_visits
+        SET page_visits = page_visits + %s
+        WHERE event_id = %s
+        """, consistency_level=ConsistencyLevel.QUORUM)
 
 if __name__ == '__main__':
     pass

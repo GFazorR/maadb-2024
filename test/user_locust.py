@@ -1,40 +1,16 @@
 import random
 import uuid
 
-from locust import HttpUser, task, between, events
-import json
+from locust import HttpUser, task, between
+from setup_teardown import id_list_business, id_list_client
 
-from src.models import UserModel
-from pydantic.tools import parse_obj_as
-import httpx
-
-id_list_business = []
-id_list_client = []
-
-
-@events.test_start.add_listener
-def on_test_start(environment):
-    for _ in range(50):
-        username = "testBusinessUser" + str(uuid.uuid4())
-        response = httpx.post("http://localhost:8000/register/business",
-                              params={'username': username})
-        if response.status_code == 200:
-            response_user = json.loads(response.text)
-            user = parse_obj_as(UserModel, response_user)
-            id_list_business.append(str(user.id))
-            print(user)
-        response = httpx.post("http://localhost:8000/register/client",
-                              params={'username': username})
-        if response.status_code == 200:
-            response_user = json.loads(response.text)
-            user = parse_obj_as(UserModel, response_user)
-            id_list_client.append(str(user.id))
-            print(user)
+local_random = random.Random(123)
 
 
 class LoadTestUser(HttpUser):
     host = 'http://localhost:8000'  # Add this line
     wait_time = between(1, 2.5)  # Wait time between tasks
+    weight = 1
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,12 +21,12 @@ class LoadTestUser(HttpUser):
         username = "testBusinessUser" + str(uuid.uuid4())
         response = self.client.post("/register/business", params=f"username={username}")
         assert response.status_code == 200
-        id_list_business.append(response.json()["id"])
+        # id_list_business.append(response.json()["id"])
 
     @task
     def get_business_user(self):
         """Simulate getting a business user by ID."""
-        user_id = random.choice(id_list_business)
+        user_id = local_random.choice(id_list_business)
         response = self.client.get(f"/user/business/{user_id}")
         assert (response.headers.get('X-Session-Id', False)
                 and response.status_code == 200)
@@ -61,15 +37,36 @@ class LoadTestUser(HttpUser):
         username = "testClientUser" + str(uuid.uuid4())
         response = self.client.post("/register/client", params=f"username={username}")
         assert response.status_code == 200
-        id_list_client.append(response.json()["id"])
+        # id_list_client.append(response.json()["id"])
 
     @task
     def get_client_users(self):
         """Simulate getting all client users."""
-        user_id = random.choice(id_list_client)
+        user_id = local_random.choice(id_list_client)
         response = self.client.get(f"/user/client/{user_id}")
         assert (response.headers.get('X-Session-Id', False)
                 and response.status_code == 200)
+
+    @task
+    def get_tickets_by_user(self):
+        response = self.client.get(
+            f"/user/tickets",
+            params={
+                "user_id": local_random.choice(id_list_business + id_list_client),
+                "ticket_status":
+                    local_random.choice(['purchased', 'canceled', None])},
+        )
+        assert (response is not None and response.status_code == 200)
+
+    @task
+    def get_discount(self):
+        user_id = local_random.choice(id_list_business + id_list_client)
+        response = self.client.get(
+            f"/user/discount",
+            params={'user_id': user_id}
+        )
+        assert (response is not None and response.status_code == 200)
+
 
 
 if __name__ == '__main__':
