@@ -6,6 +6,7 @@ from locust import HttpUser, task, between
 from setup_teardown import created_events, id_list_business
 from src.models import EventModel
 from test.utils import generate_sample_event_data
+
 local_random = random.Random(1234)
 
 
@@ -19,8 +20,10 @@ class EventLoadTest(HttpUser):
     @task
     def create_event(self):
         """Simulate creating an event with capacities."""
-        event = EventModel(id=str(uuid.uuid4()), **generate_sample_event_data(local_random.choices(id_list_business,
-                                                                                             k=local_random.randint(1, 3))))
+        event = EventModel(id=str(uuid.uuid4()),
+                           **generate_sample_event_data(local_random.choices(
+                               id_list_business,
+                               k=local_random.randint(1, 3))))
         response = self.client.post(
             "/event",
             headers={"Content-Type": "application/json"},
@@ -33,14 +36,21 @@ class EventLoadTest(HttpUser):
     @task
     def get_event_by_user(self):
         """Simulate getting an event."""
-        response = self.client.get("/event/published")
+        user_id = local_random.choice(id_list_business)
+        response = self.client.get("/event/by_user_id", params={"user_id": user_id})
         assert response.status_code == 200 or response.status_code == 404
 
     @task
     def get_published_event(self):
         """Simulate getting an event."""
-        user_id = local_random.choice(id_list_business)
-        response = self.client.get(f"/event/{user_id}")
+        response = self.client.get(f"/event/published")
+        assert response.status_code == 200
+
+    @task
+    def get_published_event(self):
+        """Simulate getting an event."""
+        event = local_random.choice(created_events)
+        response = self.client.get(f"/event", params={"event_id": event.id})
         assert response.status_code == 200
 
     @task

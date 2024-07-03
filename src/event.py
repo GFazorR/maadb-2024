@@ -49,7 +49,7 @@ async def save_event(
     """
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
-    logger.info(event.id)
+    logger.debug(event.id)
 
     if event.published:
         event_service.create_event(event)
@@ -74,7 +74,7 @@ async def update_event(
     """
     event = await engine.save(event)
     background_tasks.add_task(set_cache, event)
-    logger.info(event.id)
+    logger.debug(event.id)
     if event.published:
         event_service.create_event(event)
 
@@ -95,7 +95,7 @@ async def delete_event(
     :param engine: Depends on engine
     :return: Response
     """
-    logger.info((event.id, type(event.id)))
+    logger.debug((event.id, type(event.id)))
     try:
         background_task.add_task(delete_cache, event)
         await engine.delete(event)
@@ -105,7 +105,7 @@ async def delete_event(
 
 
 # TODO: refactor
-@router.get('/event/event_id/{event_id}')
+@router.get('/event/')
 async def get_event_by_event_id(background_task: BackgroundTasks,
                                 event_id: str,
                                 engine=Depends(get_engine)):
@@ -148,9 +148,8 @@ async def get_published_events(background_task: BackgroundTasks,
     except DocumentNotFoundError as e:
         return Response(status_code=status.HTTP_404_NOT_FOUND, content=str(e))
 
-# TODO move in users
-# TODO remove in-endpoint params
-@router.get('/event/{user_id}', response_model=List[EventModel])
+
+@router.get('/event/by_user_id', response_model=List[EventModel])
 async def get_event_by_user_id(user_id: str,
                                background_task: BackgroundTasks,
                                engine=Depends(get_engine)):

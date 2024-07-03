@@ -14,8 +14,8 @@ from test.utils import generate_sample_event_data
 fake = Faker()
 local_random = random.Random(1234)
 
-n_events = 100
-n_users = 100
+n_events = 50
+n_users = 50
 
 id_list_business = []
 id_list_client = []
@@ -63,4 +63,4 @@ def populate_events(environment):
         if result.status_code == 200:
             # print(event.id, result.json()['id'])
             created_events.append(EventModel(**result.json()))
-    sleep(3)
+    sleep(1)

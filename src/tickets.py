@@ -1,5 +1,4 @@
 import logging
-import uuid
 
 from fastapi import APIRouter, Response, status, Depends
 
@@ -64,12 +63,6 @@ async def delete_ticket(
     if result:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return Response(status_code=status.HTTP_404_NOT_FOUND)
-
-
-
-
-
-
 
 
 if __name__ == '__main__':

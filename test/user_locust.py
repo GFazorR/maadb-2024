@@ -2,6 +2,7 @@ import random
 import uuid
 
 from locust import HttpUser, task, between
+
 from setup_teardown import id_list_business, id_list_client
 
 local_random = random.Random(123)
@@ -27,7 +28,7 @@ class LoadTestUser(HttpUser):
     def get_business_user(self):
         """Simulate getting a business user by ID."""
         user_id = local_random.choice(id_list_business)
-        response = self.client.get(f"/user/business/{user_id}")
+        response = self.client.get(f"/user/business", params={'user_id': user_id})
         assert (response.headers.get('X-Session-Id', False)
                 and response.status_code == 200)
 
@@ -43,7 +44,7 @@ class LoadTestUser(HttpUser):
     def get_client_users(self):
         """Simulate getting all client users."""
         user_id = local_random.choice(id_list_client)
-        response = self.client.get(f"/user/client/{user_id}")
+        response = self.client.get(f"/user/client", params={'user_id': user_id})
         assert (response.headers.get('X-Session-Id', False)
                 and response.status_code == 200)
 
@@ -66,6 +67,8 @@ class LoadTestUser(HttpUser):
             params={'user_id': user_id}
         )
         assert (response is not None and response.status_code == 200)
+
+    @task
 
 
 if __name__ == '__main__':

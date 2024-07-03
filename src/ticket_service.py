@@ -57,7 +57,7 @@ class AnalyticsService:
             self.query_counter,
             (event_id,)
         )
-        logger.info(event_id)
+        logger.debug(event_id)
         return result.one().page_visits
 
     def get_event_counter(self, user_id):
@@ -95,7 +95,7 @@ class TicketService:
                                            '%Y-%m-%d').date(),
             )
         )
-        logger.info(f"LOG_TICKET_SERVICE: {ticket.event_id, datetime.datetime.strptime(ticket.event_day, '%Y-%m-%d').date()}")
+        logger.debug(f"LOG_TICKET_SERVICE: {ticket.event_id, datetime.datetime.strptime(ticket.event_day, '%Y-%m-%d').date()}")
         initial_purchased = initial_purchased.one().purchased_tickets
 
         if not (initial_purchased + n_tickets < max_capacity):

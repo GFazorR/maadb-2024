@@ -21,7 +21,7 @@ class LoadTestUserSession(HttpUser):
     async def get_user_session(self):
         """Simulate getting a session."""
         user_id = local_random.choice(id_list_business + id_list_client)
-        response = self.client.get(f"/session/events/{user_id}", name="/session/events/{user_id}")
+        response = self.client.get(f"/session/events", params={'user_id': user_id})
         assert response.status_code == 200, f"Expected 200 but got {response.status_code}"
 
     @task(1)

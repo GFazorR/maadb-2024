@@ -27,7 +27,7 @@ async def register(username: str, engine=Depends(get_engine)):
     return user
 
 
-@router.get('/user/business/{user_id}')
+@router.get('/user/business')
 async def get_user(user_id: str, engine=Depends(get_engine)):
     """
     Get the business user by id.
@@ -56,7 +56,7 @@ async def register_client(username: str, engine=Depends(get_engine)):
     return user
 
 
-@router.get('/user/client/{user_id}')
+@router.get('/user/client')
 async def get_client_users(user_id: str, engine=Depends(get_engine)):
     """
     Get all client users.
