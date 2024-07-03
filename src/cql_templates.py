@@ -123,12 +123,6 @@ FROM inventory.events
 WHERE event_id = %s
 """)
 
-purch_tickets = SimpleStatement("""
-SELECT purchased_tickets
-FROM inventory.events
-WHERE event_id = %s AND event_day = %s
-IF purchased_tickets < %s
-""", consistency_level=ConsistencyLevel.LOCAL_QUORUM)
 
 user_tickets_status = SimpleStatement("""
 SELECT * 

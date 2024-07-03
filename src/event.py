@@ -15,7 +15,7 @@ from fastapi import (
 from odmantic.exceptions import DocumentNotFoundError
 
 from src.models import EventModel
-from src.redis_utils import (
+from src.redis_service import (
     get_cache,
     set_cache,
     delete_cache,

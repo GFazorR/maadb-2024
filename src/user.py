@@ -7,7 +7,7 @@ from math import log
 from fastapi import APIRouter, Depends, Response, status, BackgroundTasks
 
 from src.models import UserModel
-from src.redis_utils import create_session, get_cached_discount, set_cached_discount
+from src.redis_service import create_session, get_cached_discount, set_cached_discount
 from src.utils import get_engine, get_ticket_service
 
 router = APIRouter()

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Response, status, Depends, BackgroundTasks
 from math import log
 
-from src.redis_utils import get_cached_discount, set_cached_discount
+from src.redis_service import get_cached_discount, set_cached_discount
 from src.utils import get_analytics_service, get_ticket_service
 
 router = APIRouter()
