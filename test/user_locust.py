@@ -68,8 +68,6 @@ class LoadTestUser(HttpUser):
         )
         assert (response is not None and response.status_code == 200)
 
-    @task
-
 
 if __name__ == '__main__':
     pass
