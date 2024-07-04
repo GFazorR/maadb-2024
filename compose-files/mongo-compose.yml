@@ -51,8 +51,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
-      MAX_HEAP_SIZE: 1G
-      HEAP_NEWSIZE: 256M
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 128M
       CASSANDRA_DC: my-datacenter-1
     networks:
       - cassandra-net
@@ -75,8 +75,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
-      MAX_HEAP_SIZE: 1G
-      HEAP_NEWSIZE: 256M
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 128M
       CASSANDRA_DC: my-datacenter-1
       CASSANDRA_SEEDS: cassandra-1
     networks:
@@ -103,8 +103,8 @@ services:
       CASSANDRA_LISTEN_ADDRESS: auto  # default, use IP addr of container # = CASSANDRA_BROADCAST_ADDRESS
       CASSANDRA_CLUSTER_NAME: my-cluster
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
-      MAX_HEAP_SIZE: 1G
-      HEAP_NEWSIZE: 256M
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 128M
       CASSANDRA_DC: my-datacenter-1
 
     networks:

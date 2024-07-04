@@ -18,7 +18,7 @@ The project showcases the polyglot usage of nosql database such as Cassandra, Mo
 
 ### Initialize databases:
 ```bash
-docker compose up 
+docker compose -f compose-files/mongo-compose.yml up 
 ```
 Initialization may take a wile due to the health checks in the cassandra nodes.
 
